@@ -11,12 +11,17 @@
     "preview": "vite preview",
     "db:migrate": "node-pg-migrate up",
     "db:rollback": "node-pg-migrate down",
+    "db:seed": "node server/db/seed-cli.js",
     "sync:catalog": "node server/jobs/cli.js catalog",
     "sync:rankings": "node server/jobs/cli.js rankings",
     "sync:popularity": "node server/jobs/cli.js popularity",
-    "test": "vitest run tests/api tests/domain tests/integrations",
+    "sync:steam-catalog": "node server/jobs/cli.js steam-catalog",
+    "sync:scores": "node server/jobs/cli.js scores",
+    "sync:all": "node server/jobs/cli.js all",
+    "test": "vitest run tests/api tests/domain tests/integrations tests/db",
     "test:watch": "vitest",
-    "test:sites": "node --test tests/sites-worker.test.mjs"
+    "test:sites": "node --test tests/sites-worker.test.mjs",
+    "verify": "npm test && npm run build && npm run test:sites"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",

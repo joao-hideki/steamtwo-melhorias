@@ -31,6 +31,16 @@ const app = createApp({
   staticDir: existsSync(staticDir) ? staticDir : undefined,
 });
 
-app.listen(config.port, () => {
-  console.log(`SteamTwo API disponível na porta ${config.port}`);
+const server = app.listen(config.port, () => {
+  console.log(`SteamTwo API disponível na porta ${config.port} (modo: ${catalogService.mode})`);
 });
+
+// Encerramento limpo no `docker compose down` (SIGTERM): fecha HTTP e o pool do PostgreSQL.
+for (const signal of ["SIGTERM", "SIGINT"]) {
+  process.once(signal, () => {
+    server.close(async () => {
+      await pool?.end();
+      process.exit(0);
+    });
+  });
+}

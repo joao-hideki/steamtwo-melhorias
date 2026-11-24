@@ -2,4 +2,5 @@ export { createEpicClient, parseEgdataMostPlayed, parseEpicMostPlayed } from "./
 export { ExternalServiceError, requestExternal, requestJson, requestText } from "./http.js";
 export { createIgdbClient } from "./igdb-client.js";
 export { createSteamClient } from "./steam-client.js";
+export { createSteamStoreClient, normalizeSteamAppDetails } from "./steam-store-client.js";
 export * from "./normalizers.js";
