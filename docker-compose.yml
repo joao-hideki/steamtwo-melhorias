@@ -1,20 +1,86 @@
+# Sobe o SteamTwo completo com um comando:  docker compose up --build
+#   postgres → migrate (migrações + seed) → api (API + interface) e sync (coleta real)
+# Interface e API: http://localhost:3001   ·   Saúde: http://localhost:3001/api/health
+#
+# Para desenvolvimento local (npm run dev / dev:api) basta o banco:  docker compose up -d postgres
+# As credenciais abaixo são apenas de desenvolvimento; podem ser trocadas via .env.
+x-app-env: &app-env
+  NODE_ENV: production
+  PORT: 3001
+  DATABASE_URL: postgres://${POSTGRES_USER:-steamtwo}:${POSTGRES_PASSWORD:-steamtwo}@postgres:5432/${POSTGRES_DB:-steamtwo}
+  STEAM_COUNTRY: ${STEAM_COUNTRY:-BR}
+  EPIC_LOCALE: ${EPIC_LOCALE:-pt-BR}
+  TWITCH_CLIENT_ID: ${TWITCH_CLIENT_ID:-}
+  TWITCH_CLIENT_SECRET: ${TWITCH_CLIENT_SECRET:-}
+
 services:
   postgres:
     image: postgres:17-alpine
     environment:
-      POSTGRES_DB: steamtwo
-      POSTGRES_USER: steamtwo
-      POSTGRES_PASSWORD: steamtwo
+      POSTGRES_DB: ${POSTGRES_DB:-steamtwo}
+      POSTGRES_USER: ${POSTGRES_USER:-steamtwo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-steamtwo}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U steamtwo -d steamtwo"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-steamtwo} -d ${POSTGRES_DB:-steamtwo}"]
       interval: 5s
       timeout: 3s
       retries: 10
     volumes:
       - steamtwo_pgdata:/var/lib/postgresql/data
 
+  migrate:
+    build: .
+    image: steamtwo-app
+    environment: *app-env
+    healthcheck:
+      disable: true
+    command: ["sh", "-c", "npx node-pg-migrate up && node server/db/seed-cli.js"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    image: steamtwo-app
+    pull_policy: never  # reutiliza a imagem construída pelo serviço migrate
+    environment: *app-env
+    ports:
+      - "3001:3001"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  # Coleta real: descobre jogos na Steam, grava snapshots Steam/Epic e recalcula o
+  # índice. Roda ao subir e depois a cada SYNC_INTERVAL_MINUTES (padrão: 30).
+  sync:
+    image: steamtwo-app
+    pull_policy: never
+    environment: *app-env
+    healthcheck:
+      disable: true  # serviço sem HTTP: o healthcheck da imagem vale só para a api
+    command: ["sh", "-c", "node server/jobs/cli.js all --every ${SYNC_INTERVAL_MINUTES:-30}"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  # Verificação completa sem Node local (inclui integração com PostgreSQL):
+  #   docker compose --profile test run --rm test
+  test:
+    profiles: ["test"]
+    build:
+      context: .
+      target: build
+    image: steamtwo-test
+    environment:
+      TEST_DATABASE_URL: postgres://${POSTGRES_USER:-steamtwo}:${POSTGRES_PASSWORD:-steamtwo}@postgres:5432/steamtwo_test
+    command: ["sh", "-c", "npm test && npm run test:sites"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   steamtwo_pgdata:
-
