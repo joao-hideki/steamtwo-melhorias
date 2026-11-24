@@ -5,8 +5,8 @@
 - Subir tudo: `docker compose up --build` → http://localhost:3001 (API e interface na mesma porta).
   - Ordem dos serviços: `postgres` → `migrate` (migrações + seed, termina com código 0) → `api` e `sync`.
   - A API está pronta quando `GET /api/health` responder `"database":{"status":"connected"}`.
-  - O `sync` busca dados reais na Steam e na Epic (precisa de internet). Primeiro ciclo: ~30 s. Acompanhe com `docker compose logs -f sync`.
-- Testes sem Node local: `docker compose --profile test run --rm test` (48 Vitest + 4 Sites; 9 deles usam PostgreSQL real).
+  - O `sync` busca dados reais na Steam e na Epic (precisa de internet). Primeiro ciclo: ~1 min. Acompanhe com `docker compose logs -f sync`.
+- Testes sem Node local: `docker compose --profile test run --rm --build test` (54 Vitest + 4 Sites; 12 deles usam PostgreSQL real).
 - Testes com Node 20+: `npm ci && npm run verify`. A integração com PostgreSQL usa `TEST_DATABASE_URL` ou `<DATABASE_URL>_test` do `.env`; sem nenhum dos dois, essa suíte é pulada com aviso.
 - Evidência da integração: `GET /api/status` (contagens das tabelas, frescor das fontes, último `sync_run` de cada job) e a página `/status` da interface.
 - O mapeamento rubrica → evidências está no `README.md`, seção “Como avaliar”.

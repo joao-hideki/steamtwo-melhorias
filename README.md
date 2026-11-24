@@ -25,7 +25,7 @@ Abra **http://localhost:3001**. O comando sobe quatro serviços, em ordem:
 | `api` | API + interface compilada na porta 3001. Healthcheck em `/api/health`. |
 | `sync` | Coleta **real**: descobre jogos do top da Steam, grava snapshots Steam/Epic e recalcula o Índice SteamTwo. Roda ao subir e a cada `SYNC_INTERVAL_MINUTES` (padrão 30). |
 
-O primeiro ciclo do `sync` leva cerca de 30 s (busca detalhes de ~40 jogos na loja Steam). Até ele terminar, o dashboard mostra só os 10 jogos do seed.
+O primeiro ciclo do `sync` leva cerca de 1 minuto (busca detalhes e verifica as capas de ~40 jogos na loja Steam). Até ele terminar, o dashboard mostra só os 10 jogos do seed.
 
 Para conferir rapidamente:
 
@@ -40,12 +40,14 @@ Na interface, o selo **PostgreSQL** no cabeçalho e a página **Status da integr
 ### Verificar (testes)
 
 ```bash
-docker compose --profile test run --rm test   # sem Node local: unitários + API + integração PostgreSQL + Sites
+docker compose --profile test run --rm --build test   # sem Node local: unitários + API + integração PostgreSQL + Sites
 # ou, com Node 20+ e o banco do compose no ar:
-npm ci && npm run verify                      # npm test + build + test:sites
+npm ci && cp .env.example .env && npm run verify      # npm test + build + test:sites
 ```
 
-Resultado esperado: **48 testes** Vitest (8 arquivos, sendo 9 testes de integração com PostgreSQL real) e **4** testes `node:test` de Sites, todos passando. O GitHub Actions (`.github/workflows/ci.yml`) roda os testes e também sobe o `docker compose` e chama a API.
+Resultado esperado: **54 testes** Vitest (8 arquivos, sendo 12 de integração com PostgreSQL real) e **4** testes `node:test` de Sites, todos passando. Sem banco configurado, a suíte de integração é pulada **com aviso**; no CI (`REQUIRE_DB_TESTS=1`), pular é falha. O GitHub Actions (`.github/workflows/ci.yml`) roda os testes e também sobe o `docker compose` e chama a API.
+
+Evidências da execução (capturas de tela e logs de uma subida limpa) estão em [`docs/evidencias/`](docs/evidencias/).
 
 ---
 
@@ -55,7 +57,7 @@ Resultado esperado: **48 testes** Vitest (8 arquivos, sendo 9 testes de integra�
 |---|---|
 | **Back-end funcionando e integrado ao PostgreSQL (3,0)** | `docker compose up --build`, depois `GET /api/health` → `connected` e `GET /api/status` → contagens. Migrações em `migrations/` e seed em `server/db/seed.js`. Leitura com SQL parametrizado em `server/db/catalog-read-repository.js`. Jobs em `server/jobs/`. Ver também a seção “Integração com o banco” abaixo. |
 | **Melhorias relevantes implementadas (3,0)** | Seção “Melhorias” abaixo: cálculo do índice, catálogo automático pela Steam, rankings reais, lista pessoal no banco, status da integração, busca/filtro/paginação no SQL, tolerância a falhas e Docker completo. |
-| **Integração, testes e qualidade técnica (2,0)** | `tests/db/postgres.integration.test.js` (migrações → seed → coleta → índice → API HTTP lendo o banco). Também `tests/api/*`, `tests/integrations/*` e CI. Correção de **5 bugs** do projeto-base que impediam o back-end de funcionar com um Postgres real (seção “Bugs corrigidos”). |
+| **Integração, testes e qualidade técnica (2,0)** | `tests/db/postgres.integration.test.js` (migrações → seed → coleta → índice → API HTTP lendo o banco). Também `tests/api/*`, `tests/integrations/*` e CI. Correção de **6 bugs** do projeto-base, 2 deles impediam qualquer coleta num Postgres real (seção “Bugs corrigidos”). |
 | **PDF, imagens e explicações (2,0)** | Entregue no Classroom. Este README traz as mesmas instruções e explicações. |
 
 ---
@@ -65,14 +67,16 @@ Resultado esperado: **48 testes** Vitest (8 arquivos, sendo 9 testes de integra�
 1. **Cálculo do Índice SteamTwo (job `scores`)**: `server/jobs/scores.js`. No projeto-base, os snapshots das lojas eram gravados, mas **nada os transformava em `game_rankings`**, então o dashboard ficava vazio com o banco ligado. O job usa as funções de domínio já existentes (`server/domain/ranking`) para gerar os rankings *agora*, *semana* (média dos snapshots diários) e *de sempre*, por loja, com a **variação de posição** em relação ao cálculo anterior.
 2. **Catálogo automático pela loja Steam (job `steam-catalog`)**: `server/jobs/steam-catalog.js` e `server/integrations/steam-store-client.js`. Os jogos do top da Steam que ainda não estão no catálogo têm nome, descrição, capas e gêneros buscados na API pública `appdetails`, **sem precisar das credenciais da IGDB**.
 3. **Vínculo automático da Epic pelo título**: `replaceRankingSnapshot` em `server/db/job-repository.js`. A Epic usa IDs próprios; quando um produto não tem vínculo, ele é associado ao jogo do catálogo com o mesmo título normalizado.
-4. **Coleta tolerante a falhas**: `server/jobs/rankings.js`. Se uma loja cai (ex.: HTTP 502 da Steam), grava-se um snapshot `outage` e a outra loja continua. O cálculo exclui a fonte indisponível em vez de zerar todos os jogos.
+4. **Coleta tolerante a falhas**: `server/jobs/rankings.js`. Se uma loja cai (ex.: HTTP 502 da Steam), grava-se um snapshot `outage` e a outra loja continua. O "agora" usa o último snapshot **válido** de cada loja nas últimas 24 h; se não houver nenhum nesse período, a loja sai do cálculo em vez de zerar todos os jogos. A página Status mostra a loja como "Indisponível".
 5. **Lista pessoal persistida (“Adicionar à lista”)**: a tabela `watchlist_items` (migração `002`) e as rotas `GET/PUT/DELETE /api/list`. O botão existia na interface, mas não fazia nada. Sem login, cada navegador usa um UUID anônimo enviado no cabeçalho `X-List-Id`, e há uma página **Minha lista**.
 6. **Rankings reais na interface**: a página Rankings agora consome `/api/rankings`, com abas Agora / Semana / De sempre, filtro por loja e paginação. Antes ela mostrava só um top 5 fixo.
 7. **Busca, filtros, ordenação e paginação no PostgreSQL**: `searchGames`. Antes o serviço carregava o catálogo inteiro e filtrava em memória. A busca escapa `%` e `_` e todos os valores entram por placeholders.
 8. **Interface sem dados fixos**: o destaque, as datas e os números vêm da API (antes o título “ELDEN RING SHADOW OF THE ERDTREE”, as datas e as notas “Tração 96 / Qualidade 93” estavam escritos no código). O selo **PostgreSQL/Demonstração** e a página **Status da integração** (contagens, frescor das fontes e últimos `sync_runs`) deixam a integração visível.
-9. **Novas rotas e validação**: `/api/status`, `/api/genres`, `/api/list`. Erros de validação explicam o campo em português (`{campo, mensagem}`) e rotas inexistentes respondem 404 em JSON.
-10. **Docker completo**: `Dockerfile` multi-stage e `docker-compose.yml` com migrate/seed, api, sync agendado e serviço de testes. A API faz encerramento limpo no `SIGTERM`.
+9. **Novas rotas e validação**: `/api/status`, `/api/genres`, `/api/list`. Os erros de validação vêm em português, com nome do campo (`{"campo":"limit","mensagem":"Muito grande: esperado que number fosse <=100"}`), inclusive para o cabeçalho `X-List-Id` e o `slug`. Rotas inexistentes respondem 404 em JSON. `PUT /api/list/:slug` tem o mesmo contrato nos modos banco e demonstração: `201 {added:true}`, `200 {added:false}` (já estava), `404` ou `409` (lista cheia, verificação atômica numa única instrução SQL).
+10. **Docker completo**: `Dockerfile` multi-stage (a imagem final só leva dependências de produção) e `docker-compose.yml` com migrate/seed, api, sync agendado e serviço de testes. Não há nomes fixos de imagem, então cada clone gera as suas. A API faz encerramento limpo no `SIGTERM`.
 11. **Acessibilidade**: link “pular para o conteúdo”, `aria-current`/`aria-pressed`/`aria-live`, foco visível e rótulos em filtros e botões.
+12. **Metodologia mais justa** (ver “Discussão crítica do índice”): a ausência só vale zero numa loja **que vende o jogo**. Antes, o Counter-Strike 2, 1º da Steam com mais de 1 milhão de jogadores, ficava com nota 50 por não ser vendido na Epic.
+13. **Capas reais para jogos novos**: quando a arte de biblioteca da Steam não existe no CDN (comum em lançamentos), a coleta usa o `header_image` da loja em vez de uma imagem genérica.
 
 ## Bugs corrigidos do projeto-base
 
@@ -85,6 +89,7 @@ Os testes originais usam um banco falso e não detectavam estes problemas. Os no
 | Fusão dos dois rankings Steam mantinha posições repetidas | Violação de `UNIQUE (snapshot_id, position)` | renumerar 1..N após a fusão |
 | `upsert` de jogo sobrescrevia campos com `NULL` | Uma fonte sem capa ou popularidade apagava o dado de outra | `COALESCE(EXCLUDED.x, games.x)`; gêneros só são trocados quando a fonte informa algum |
 | `.detail-score > span` com especificidade maior que `.score-large` | Nota grande da página de detalhe aparecia minúscula | regra específica |
+| Link da Epic montado como `store.epicgames.com/p/<id da oferta>` | Página inexistente (o egdata fornece o ID hexadecimal, não o slug) | busca pelo título na loja da Epic; vínculos antigos são atualizados na coleta |
 
 ---
 
@@ -156,7 +161,17 @@ Jobs individuais: `npm run sync:steam-catalog`, `sync:rankings`, `sync:scores`. 
 
 ## Metodologia do índice
 
-Cada posição é normalizada por `100 × (N − posição + 1) / N`. O índice combinado é a média das lojas disponíveis. A ausência numa coleta válida vale zero; uma loja inteira indisponível (`outage`) é excluída. *Agora* usa o último snapshot válido, *Semana* a média dos snapshots diários válidos dos últimos 7 dias e *De sempre* a popularidade histórica (IGDB ou seed), que não representa horas jogadas.
+Cada posição é normalizada por `100 × (N − posição + 1) / N`. O índice combinado é a média das notas das lojas **que vendem o jogo** (vínculo em `store_listings`). Estar fora do top de uma loja que vende o jogo vale zero; uma loja sem coleta válida nas últimas 24 h é excluída. *Agora* usa o último snapshot válido de cada loja (até 24 h), *Semana* a média dos snapshots diários válidos dos últimos 7 dias e *De sempre* a popularidade histórica (IGDB ou seed), que não representa horas jogadas.
+
+### Discussão crítica do índice
+
+- **O problema da regra original.** O projeto-base definia que a "ausência numa coleta válida vale zero". Com os dados reais, o Counter-Strike 2 (1º da Steam, com mais de 1 milhão de jogadores simultâneos) ficava com nota 50 e em 6º lugar, porque não aparece no ranking da Epic, onde nem é vendido. Um jogo mediano vendido nas duas lojas passava à frente dele. A regra mistura duas situações diferentes: *estar na loja e não ser jogado* (deve pesar) e *não estar à venda na loja* (não diz nada sobre popularidade).
+- **A correção.** O zero vale só para lojas que vendem o jogo. A função de domínio continua a mesma e recebe um mapa opcional de disponibilidade (`calculateScoresByGame(snapshots, { availability })`). Sem o mapa, ela reproduz a regra original, que continua coberta pelos testes.
+- **Limitações que continuam.**
+  - "Vende na Epic" significa "já apareceu no top da Epic alguma vez", porque a Epic não tem uma API pública de catálogo para checar. Um jogo à venda na Epic que nunca entrou no top 20 de lá é tratado como exclusivo da Steam.
+  - A Epic informa só a posição, sem número de jogadores, e o top dela tem 20 itens, contra mais de 100 da Steam. A posição 10 na Epic vale 55 e na Steam vale cerca de 92. Normalizar pela posição favorece a lista menor.
+  - Jogos exclusivos da Epic não entram no catálogo, porque o vínculo é feito pelo título contra jogos já existentes. O ranking da Epic mostra só os que também estão na Steam ou no seed.
+  - *De sempre* usa a popularidade do seed enquanto a IGDB não está configurada. O seed nunca sobrescreve um valor vindo de outra fonte.
 
 ## Uso de IA
 
