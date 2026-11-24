@@ -6,11 +6,14 @@ function genreSlug(name) {
     .replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
 
-function storeUrl(store, externalId, suppliedUrl) {
+export function storeUrl(store, externalId, suppliedUrl, title) {
   if (suppliedUrl) return suppliedUrl;
-  return store === "steam"
-    ? `https://store.steampowered.com/app/${encodeURIComponent(externalId)}`
-    : `https://store.epicgames.com/p/${encodeURIComponent(externalId)}`;
+  if (store === "steam") return `https://store.steampowered.com/app/${encodeURIComponent(externalId)}`;
+  // IDs hexadecimais da Epic não correspondem a uma página; a busca pelo título sempre abre.
+  if (title && /^[0-9a-f]{32}$/i.test(String(externalId))) {
+    return `https://store.epicgames.com/pt-BR/browse?q=${encodeURIComponent(title)}&sortBy=relevancy`;
+  }
+  return `https://store.epicgames.com/p/${encodeURIComponent(externalId)}`;
 }
 
 function toGameInput(game, source) {
@@ -161,9 +164,20 @@ export async function createJobRepository({ databaseUrl, pool: suppliedPool } = 
             const gameId = gameBySlug.get(genreSlug(entry.title));
             if (!gameId) continue;
             await repositories.games.upsertListing({
-              gameId, store: "epic", externalId: entry.externalId, url: storeUrl("epic", entry.externalId, entry.url),
+              gameId, store: "epic", externalId: entry.externalId, url: storeUrl("epic", entry.externalId, entry.url, entry.title),
             }, client);
             gameByExternalId.set(String(entry.externalId), gameId);
+          }
+        }
+
+        if (source === "epic") {
+          // Mantém o link da loja atualizado (corrige vínculos antigos gravados como /p/<id>).
+          for (const entry of entries) {
+            const gameId = gameByExternalId.get(String(entry.externalId));
+            if (!gameId || !entry.title) continue;
+            await repositories.games.upsertListing({
+              gameId, store: "epic", externalId: entry.externalId, url: storeUrl("epic", entry.externalId, entry.url, entry.title),
+            }, client);
           }
         }
 

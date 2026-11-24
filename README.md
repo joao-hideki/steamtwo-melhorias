@@ -45,7 +45,7 @@ docker compose --profile test run --rm test   # sem Node local: unitários + API
 npm ci && npm run verify                      # npm test + build + test:sites
 ```
 
-Resultado esperado: **47 testes** Vitest (8 arquivos, sendo 9 testes de integração com PostgreSQL real) e **4** testes `node:test` de Sites, todos passando. O GitHub Actions (`.github/workflows/ci.yml`) roda os testes e também sobe o `docker compose` e chama a API.
+Resultado esperado: **48 testes** Vitest (8 arquivos, sendo 9 testes de integração com PostgreSQL real) e **4** testes `node:test` de Sites, todos passando. O GitHub Actions (`.github/workflows/ci.yml`) roda os testes e também sobe o `docker compose` e chama a API.
 
 ---
 

@@ -52,3 +52,13 @@ describe("job repository", () => {
     expect(pool.queries.some(({ sql }) => sql.includes("INSERT INTO ranking_entries"))).toBe(true);
   });
 });
+
+describe("links das lojas", () => {
+  it("usa busca por título para IDs hexadecimais da Epic (página /p/<id> não existe)", async () => {
+    const { storeUrl } = await import("../../server/db/job-repository.js");
+    expect(storeUrl("epic", "02d44be4c21c4ce094c6151133c91482", null, "Rocket League®"))
+      .toBe("https://store.epicgames.com/pt-BR/browse?q=Rocket%20League%C2%AE&sortBy=relevancy");
+    expect(storeUrl("epic", "fortnite", null, "Fortnite")).toBe("https://store.epicgames.com/p/fortnite");
+    expect(storeUrl("steam", "730")).toBe("https://store.steampowered.com/app/730");
+  });
+});

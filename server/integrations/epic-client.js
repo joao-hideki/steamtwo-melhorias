@@ -65,6 +65,9 @@ export function parseEgdataMostPlayed(html) {
     ...entry,
     provider: "egdata-fallback",
     metric: null,
+    // O egdata expõe o ID da oferta (hex), não o slug da página da loja:
+    // "/p/<id>" não abre. Sem URL, o repositório gera uma busca pelo título.
+    url: null,
   }));
 }
 
