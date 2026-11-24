@@ -41,8 +41,38 @@ describe("sync jobs", () => {
       },
       epic: { getMostPlayedGames: async () => [{ externalId: "fortnite", rank: 1 }] },
     });
-    expect(result).toMatchObject({ records: 2, sources: { steam: 1, epic: 1 } });
+    expect(result).toMatchObject({ records: 2, sources: { steam: { status: "success", entries: 1 }, epic: { status: "success", entries: 1 } } });
     expect(repo.replaceRankingSnapshot).toHaveBeenCalledWith(expect.objectContaining({ source: "steam", entries: [expect.objectContaining({ rank: 1, metric: 20 })] }));
     expect(repo.replaceRankingSnapshot).toHaveBeenCalledWith(expect.objectContaining({ source: "epic" }));
+  });
+
+  it("registra outage da Epic sem derrubar a coleta da Steam", async () => {
+    const repo = repository();
+    const result = await syncRankings({
+      repository: repo,
+      now: clock,
+      steam: {
+        getGamesByConcurrentPlayers: async () => [{ externalId: "730", rank: 1, metric: 10 }],
+        getMostPlayedGames: async () => [{ externalId: "570", rank: 1, metric: 5 }],
+      },
+      epic: { getMostPlayedGames: async () => { throw new Error("HTTP 403"); } },
+    });
+    expect(result.status).toBe("success");
+    expect(result.sources.epic).toMatchObject({ status: "outage", error: "HTTP 403" });
+    expect(repo.replaceRankingSnapshot).toHaveBeenCalledWith(expect.objectContaining({ source: "epic", status: "outage" }));
+    // Fusão Steam renumera as posições 1..N (antes podiam repetir e violar UNIQUE(snapshot, position)).
+    const steamCall = repo.replaceRankingSnapshot.mock.calls.find(([input]) => input.source === "steam")[0];
+    expect(steamCall.entries.map((entry) => entry.rank)).toEqual([1, 2]);
+  });
+
+  it("falha quando Steam e Epic estão fora do ar ao mesmo tempo", async () => {
+    const repo = repository();
+    const down = async () => { throw new Error("HTTP 502"); };
+    await expect(syncRankings({
+      repository: repo, now: clock,
+      steam: { getGamesByConcurrentPlayers: down, getMostPlayedGames: down },
+      epic: { getMostPlayedGames: down },
+    })).rejects.toThrow(/indisponíveis/);
+    expect(repo.finishSyncRun).toHaveBeenCalledWith(expect.objectContaining({ status: "failed" }));
   });
 });

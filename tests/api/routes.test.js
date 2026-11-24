@@ -10,7 +10,10 @@ describe("SteamTwo API", () => {
     const response = await request(app).get("/api/dashboard").expect(200);
     expect(response.body.hero.title).toBeTruthy();
     expect(response.body.topFive).toHaveLength(5);
-    expect(response.body.sourceStatus.steam).toBe("fresh");
+    // Sem banco os dados são de demonstração: a API não pode afirmar que estão "frescos".
+    expect(response.body.sourceStatus.steam).toBe("demo");
+    expect(response.body.mode).toBe("demo");
+    expect(response.body.isFallback).toBe(true);
   });
 
   it("filtra catálogo por loja e busca", async () => {
