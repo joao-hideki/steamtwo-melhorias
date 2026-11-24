@@ -6,6 +6,16 @@
 const STORE_LABEL = "CASE WHEN sl.store = 'steam' THEN 'Steam' ELSE 'Epic Games' END";
 const FRESH_HOURS = 26;
 
+/**
+ * Instante do cálculo "atual": o último job `scores` bem-sucedido (registrado em sync_runs),
+ * mesmo que ele não tenha gerado linhas — assim um cálculo vazio (nenhuma loja com dado
+ * válido) não deixa a API exibindo o ranking anterior como se fosse atual. Sem histórico
+ * de jobs (dados inseridos à mão), vale o ranking mais recente da tabela.
+ */
+const currentAsOf = (period, store) => `COALESCE(
+  (SELECT max(started_at) FROM sync_runs WHERE job = 'scores' AND state = 'success'),
+  (SELECT max(as_of) FROM game_rankings WHERE period = ${period} AND store = ${store}))`;
+
 const GAME_FIELDS = `
   g.id, g.slug, g.title, g.summary,
   g.cover_url AS "coverUrl", g.hero_url AS "heroUrl", g.released_at AS "releaseDate",
@@ -20,7 +30,7 @@ const CURRENT_METRICS = `
   LEFT JOIN LATERAL (
     SELECT score, trend, rank FROM game_rankings
     WHERE game_id = g.id AND period = 'now' AND store = 'all'
-      AND as_of = (SELECT max(as_of) FROM game_rankings WHERE period = 'now' AND store = 'all')
+      AND as_of = ${currentAsOf("'now'", "'all'")}
   ) cur ON true
   LEFT JOIN LATERAL (
     SELECT re.concurrent_players FROM ranking_entries re JOIN ranking_snapshots rs ON rs.id = re.snapshot_id
@@ -55,7 +65,7 @@ function escapeLike(text) {
 
 export function createCatalogReadRepository(pool) {
   async function latestAsOf(period, store) {
-    const result = await pool.query("SELECT max(as_of) AS as_of FROM game_rankings WHERE period = $1 AND store = $2", [period, store]);
+    const result = await pool.query(`SELECT ${currentAsOf("$1::ranking_period", "$2")} AS as_of`, [period, store]);
     return result.rows[0]?.as_of ?? null;
   }
 
@@ -65,7 +75,7 @@ export function createCatalogReadRepository(pool) {
     const rankingStore = period === "all-time" ? "all" : store;
     const storeFilter = period === "all-time" && store !== "all" ? store : null;
     const result = await pool.query(`
-      WITH latest AS (SELECT max(as_of) AS as_of FROM game_rankings WHERE period = $1 AND store = $2),
+      WITH latest AS (SELECT ${currentAsOf("$1", "$2")} AS as_of),
       ranked AS (
         SELECT r.*, row_number() OVER (ORDER BY r.rank) AS position
         FROM game_rankings r JOIN latest l ON r.as_of = l.as_of
@@ -73,8 +83,12 @@ export function createCatalogReadRepository(pool) {
           AND ($3::store_name IS NULL OR EXISTS (SELECT 1 FROM store_listings x WHERE x.game_id = r.game_id AND x.store = $3::store_name))
       )
       SELECT r.position AS rank, r.score, r.metric, r.trend, r.source, r.as_of AS "updatedAt",
-        count(*) OVER () AS total, players.concurrent_players AS "currentPlayers", ${GAME_FIELDS}
+        count(*) OVER () AS total, players.concurrent_players AS "currentPlayers", cur.rank AS "currentRank", ${GAME_FIELDS}
       FROM ranked r JOIN games g ON g.id = r.game_id
+      LEFT JOIN LATERAL (
+        SELECT c.rank FROM game_rankings c WHERE c.game_id = g.id AND c.period = 'now' AND c.store = 'all'
+          AND c.as_of = ${currentAsOf("'now'", "'all'")}
+      ) cur ON true
       LEFT JOIN LATERAL (
         SELECT re.concurrent_players FROM ranking_entries re JOIN ranking_snapshots rs ON rs.id = re.snapshot_id
         WHERE re.game_id = g.id AND rs.source = 'steam' AND rs.status = 'success' ORDER BY rs.captured_at DESC LIMIT 1
@@ -204,16 +218,28 @@ export function createCatalogReadRepository(pool) {
         const result = await pool.query("SELECT count(*)::int AS total FROM watchlist_items WHERE list_id = $1", [listId]);
         return result.rows[0].total;
       },
-      /** Retorna false se o jogo não existe; adicionar duas vezes é idempotente. */
-      async add(listId, slug) {
+      /**
+       * Uma única instrução decide o resultado (sem corrida entre contar e inserir):
+       * "not-found" | "exists" (idempotente) | "full" (limite atingido) | "added".
+       */
+      async add(listId, slug, limit) {
         const result = await pool.query(`
-          WITH game AS (SELECT id FROM games WHERE slug = $2)
-          INSERT INTO watchlist_items (list_id, game_id) SELECT $1, id FROM game
-          ON CONFLICT (list_id, game_id) DO NOTHING
-          RETURNING game_id`, [listId, slug]);
-        if (result.rows[0]) return true;
-        const exists = await pool.query("SELECT 1 FROM games WHERE slug = $1", [slug]);
-        return exists.rows.length > 0;
+          WITH game AS (SELECT id FROM games WHERE slug = $2),
+          existing AS (SELECT 1 FROM watchlist_items w JOIN game ON w.game_id = game.id WHERE w.list_id = $1),
+          total AS (SELECT count(*) AS n FROM watchlist_items WHERE list_id = $1),
+          inserted AS (
+            INSERT INTO watchlist_items (list_id, game_id)
+            SELECT $1, game.id FROM game, total
+            WHERE NOT EXISTS (SELECT 1 FROM existing) AND total.n < $3
+            ON CONFLICT (list_id, game_id) DO NOTHING
+            RETURNING game_id
+          )
+          SELECT EXISTS (SELECT 1 FROM game) AS found, EXISTS (SELECT 1 FROM existing) AS already,
+            EXISTS (SELECT 1 FROM inserted) AS added`, [listId, slug, limit]);
+        const { found, already, added } = result.rows[0];
+        if (!found) return "not-found";
+        if (already) return "exists";
+        return added ? "added" : "full";
       },
       async remove(listId, slug) {
         const result = await pool.query(`DELETE FROM watchlist_items w USING games g

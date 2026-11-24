@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ArrowDownRight, ArrowRight, ArrowSquareOut, ArrowUpRight, BookmarkSimple, CaretDown, CaretLeft, CaretRight,
+  ArrowDownRight, ArrowLeft, ArrowRight, ArrowSquareOut, ArrowUpRight, BookmarkSimple, CaretDown, CaretLeft, CaretRight,
   ChartLineUp, Check, Circle, Database, FunnelSimple, GameController, Heartbeat, Info, MagnifyingGlass, Trash,
   TrendUp, UsersThree, Warning, X,
 } from "@phosphor-icons/react";
@@ -410,14 +410,14 @@ function Rankings({ onDetails, initialPeriod = "now" }) {
 function Detail({ slug, onBack, onMethodology, watchlist }) {
   const { data: game, loading, error } = useApi(`/games/${encodeURIComponent(slug)}`);
   if (error) {
-    return <section className="detail-page"><button className="back-link" onClick={onBack}><ArrowRight size={17} /> Voltar</button>
+    return <section className="detail-page"><button className="back-link" onClick={onBack}><ArrowLeft size={17} /> Voltar</button>
       {error.status === 404 ? <EmptyState title="Jogo não encontrado">Esse jogo não está no catálogo.</EmptyState> : <ErrorState error={error} />}</section>;
   }
   if (!game || loading) return <section className="detail-page"><EmptyState title="Carregando jogo" /></section>;
   const stores = storeKeys(game);
   return (
     <section className="detail-page">
-      <button className="back-link" onClick={onBack}><ArrowRight size={17} /> Voltar</button>
+      <button className="back-link" onClick={onBack}><ArrowLeft size={17} /> Voltar</button>
       <div className="detail-hero" style={{ "--detail-image": `url(${game.heroUrl || game.coverUrl || FALLBACK_IMAGE})` }}>
         <div>
           <span className="eyebrow">DETALHE DO JOGO</span>
@@ -558,7 +558,7 @@ function Methodology({ onClose }) {
         <button ref={closeRef} className="modal-close" aria-label="Fechar" onClick={onClose}><X size={20} /></button>
         <span className="eyebrow">TRANSPARÊNCIA</span>
         <h2 id="method-title">Como calculamos</h2>
-        <p>Cada posição é normalizada por <b>100 × (N − posição + 1) / N</b>. O índice é a média das lojas disponíveis; a ausência numa coleta válida vale zero e uma loja fora do ar é excluída do cálculo.</p>
+        <p>Cada posição é normalizada por <b>100 × (N − posição + 1) / N</b>. O índice é a média das lojas <b>que vendem o jogo</b>: estar fora do top de uma loja onde o jogo é vendido vale zero, mas um exclusivo da Steam não é punido por não aparecer na Epic. Uma loja sem coleta válida nas últimas 24 h fica fora do cálculo.</p>
         <div className="method-grid">
           <div><strong>01</strong><h3>Agora</h3><p>Último snapshot válido da Steam (jogadores simultâneos / mais jogados) e da Epic (mais jogados).</p></div>
           <div><strong>02</strong><h3>Semana</h3><p>Média dos snapshots diários válidos dos últimos sete dias.</p></div>
@@ -580,6 +580,8 @@ export function App() {
   const [toast, setToast] = useState(null);
   const notify = useCallback((message, tone = "ok") => setToast({ message, tone, id: Date.now() }), []);
   const watchlist = useWatchlist(notify);
+  // Quantas navegações internas existem para trás: "Voltar" nunca leva para fora do site.
+  const inAppHistory = useRef(0);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -588,14 +590,20 @@ export function App() {
   }, [toast]);
 
   useEffect(() => {
-    const onPop = () => setRoute(parseLocation());
+    const onPop = () => {
+      inAppHistory.current = Math.max(0, inAppHistory.current - 1);
+      setRoute(parseLocation());
+    };
     window.addEventListener("popstate", onPop);
     getJson("/health").then((health) => setMode(health.mode)).catch(() => setMode(null));
     return () => window.removeEventListener("popstate", onPop);
   }, []);
 
   const go = (path, next) => {
-    if (window.location.pathname !== path) window.history.pushState({}, "", path);
+    if (window.location.pathname !== path) {
+      window.history.pushState({}, "", path);
+      inAppHistory.current += 1;
+    }
     setRoute(next);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -603,7 +611,7 @@ export function App() {
   const details = (game) => game?.slug && go(`/jogos/${encodeURIComponent(game.slug)}`, { view: "detail", slug: game.slug });
 
   let page;
-  if (route.view === "detail") page = <Detail slug={route.slug} onBack={() => window.history.length > 1 ? window.history.back() : navigate("home")} onMethodology={() => setMethodology(true)} watchlist={watchlist} />;
+  if (route.view === "detail") page = <Detail slug={route.slug} onBack={() => (inAppHistory.current > 0 ? window.history.back() : navigate("home"))} onMethodology={() => setMethodology(true)} watchlist={watchlist} />;
   else if (route.view === "catalog") page = <Catalog search={search} onDetails={details} watchlist={watchlist} />;
   else if (route.view === "rankings") page = <Rankings onDetails={details} />;
   else if (route.view === "list") page = <MyList onDetails={details} watchlist={watchlist} onNavigate={navigate} />;

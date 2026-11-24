@@ -13,20 +13,27 @@ function mapGame(row) {
 export function createRepositories(pool) {
   return {
     games: {
-      async upsert(game, client = pool) {
+      /**
+       * Fontes diferentes (seed, Steam, IGDB) completam o mesmo jogo: um valor ausente
+       * na fonte atual nunca apaga o que outra fonte gravou. Com `preferExisting`
+       * (usado pelo seed, que roda a cada `docker compose up`), o dado já existente
+       * vence — o catálogo de exemplo só preenche lacunas e não sobrescreve dado real.
+       */
+      async upsert(game, client = pool, { preferExisting = false } = {}) {
+        const merge = (column) => (preferExisting
+          ? `COALESCE(games.${column}, EXCLUDED.${column})`
+          : `COALESCE(EXCLUDED.${column}, games.${column})`);
         const result = await client.query(`
           INSERT INTO games (slug, title, summary, cover_url, hero_url, igdb_id, igdb_popularity, released_at)
           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
           ON CONFLICT (slug) DO UPDATE SET
-            -- Fontes diferentes (seed, Steam, IGDB) completam o mesmo jogo: um valor
-            -- ausente na fonte atual não pode apagar o que outra fonte já gravou.
-            title = EXCLUDED.title,
-            summary = COALESCE(EXCLUDED.summary, games.summary),
-            cover_url = COALESCE(EXCLUDED.cover_url, games.cover_url),
-            hero_url = COALESCE(EXCLUDED.hero_url, games.hero_url),
-            igdb_id = COALESCE(EXCLUDED.igdb_id, games.igdb_id),
-            igdb_popularity = COALESCE(EXCLUDED.igdb_popularity, games.igdb_popularity),
-            released_at = COALESCE(EXCLUDED.released_at, games.released_at),
+            title = ${preferExisting ? "games.title" : "EXCLUDED.title"},
+            summary = ${merge("summary")},
+            cover_url = ${merge("cover_url")},
+            hero_url = ${merge("hero_url")},
+            igdb_id = ${merge("igdb_id")},
+            igdb_popularity = ${merge("igdb_popularity")},
+            released_at = ${merge("released_at")},
             updated_at = now()
           RETURNING id, slug, title`, [
           game.slug, game.title, game.summary ?? null, game.coverUrl ?? null, game.heroUrl ?? null,

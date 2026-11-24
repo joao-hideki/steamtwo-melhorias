@@ -41,7 +41,16 @@ describe("lista pessoal (modo demonstração)", () => {
 describe("validação e novas rotas", () => {
   it("explica o campo inválido em português", async () => {
     const response = await request(freshApp()).get("/api/games").query({ limit: 500 }).expect(400);
-    expect(response.body.details[0]).toMatchObject({ campo: "limit" });
+    expect(response.body.details[0]).toMatchObject({ campo: "limit", mensagem: expect.stringMatching(/^Muito grande/) });
+    const period = await request(freshApp()).get("/api/rankings").query({ period: "ontem" }).expect(400);
+    expect(period.body.details[0]).toMatchObject({ campo: "period", mensagem: expect.stringMatching(/^Opção inválida/) });
+  });
+
+  it("nomeia o cabeçalho e o slug inválidos no erro", async () => {
+    const header = await request(freshApp()).get("/api/list").expect(400);
+    expect(header.body.details[0].campo).toBe("X-List-Id");
+    const slug = await request(freshApp()).put("/api/list/Slug_Invalido").set("X-List-Id", LIST_ID).expect(400);
+    expect(slug.body.details[0]).toEqual({ campo: "slug", mensagem: "slug inválido" });
   });
 
   it("rota inexistente da API responde 404 em JSON", async () => {

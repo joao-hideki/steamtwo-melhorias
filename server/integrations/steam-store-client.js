@@ -27,6 +27,8 @@ export function normalizeSteamAppDetails(appId, payload) {
     summary: stripHtml(data.short_description) || null,
     coverUrl: steamAsset(appId, "library_600x900_2x.jpg"),
     heroUrl: steamAsset(appId, "library_hero.jpg"),
+    // Sempre presente na resposta; usado quando a arte de biblioteca não existe no CDN.
+    headerUrl: data.header_image || null,
     genres: (data.genres ?? []).map((genre) => ({ name: stripHtml(genre.description) })).filter((genre) => genre.name),
     releaseDate: null,
     stores: [{ store: "steam", externalId: String(appId), url: `https://store.steampowered.com/app/${appId}/` }],
@@ -36,13 +38,33 @@ export function normalizeSteamAppDetails(appId, payload) {
 export function createSteamStoreClient({ language = "brazilian", countryCode = "BR", fetchImpl, delayMs = 350 } = {}) {
   const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+  const doFetch = fetchImpl ?? globalThis.fetch;
+
+  /** Jogos recentes não têm `library_600x900_2x.jpg`/`library_hero.jpg` no caminho padrão do CDN. */
+  async function assetExists(url) {
+    try {
+      const response = await doFetch(url, { method: "HEAD", signal: AbortSignal.timeout(5000) });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+
   async function getAppDetails(appId) {
     const url = new URL(APP_DETAILS_URL);
     url.searchParams.set("appids", String(appId));
     url.searchParams.set("l", language);
     url.searchParams.set("cc", countryCode);
     const payload = await requestJson(url, { service: "steam-store", fetchImpl });
-    return normalizeSteamAppDetails(appId, payload);
+    const game = normalizeSteamAppDetails(appId, payload);
+    if (!game) return null;
+    const { headerUrl, ...rest } = game;
+    const [hasCover, hasHero] = await Promise.all([assetExists(game.coverUrl), assetExists(game.heroUrl)]);
+    return {
+      ...rest,
+      coverUrl: hasCover ? game.coverUrl : headerUrl,
+      heroUrl: hasHero ? game.heroUrl : headerUrl,
+    };
   }
 
   return {

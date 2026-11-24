@@ -69,12 +69,18 @@ export async function createJobRepository({ databaseUrl, pool: suppliedPool } = 
   async function catalogUpsert(client, games, source) {
     const saved = [];
     for (const game of games) {
-      const persisted = await repositories.games.upsert(toGameInput(game, source), client);
+      const fromSeed = source === "seed";
+      const persisted = await repositories.games.upsert(toGameInput(game, source), client, { preferExisting: fromSeed });
       const genres = (game.genres ?? []).map((genre) => ({
         slug: genre.slug || genreSlug(genre.name), name: genre.name,
       })).filter((genre) => genre.slug && genre.name);
-      // Uma fonte sem gêneros não apaga os gêneros que outra fonte já informou.
-      if (genres.length) await repositories.games.replaceGenres(persisted.id, genres, client);
+      // Uma fonte sem gêneros não apaga os gêneros que outra fonte já informou;
+      // o seed só preenche gêneros de jogos que ainda não têm nenhum.
+      if (genres.length) {
+        const hasGenres = fromSeed
+          && (await client.query("SELECT 1 FROM game_genres WHERE game_id = $1 LIMIT 1", [persisted.id])).rows.length > 0;
+        if (!hasGenres) await repositories.games.replaceGenres(persisted.id, genres, client);
+      }
       for (const listing of game.stores ?? []) {
         await repositories.games.upsertListing({
           gameId: persisted.id,
@@ -210,8 +216,12 @@ export async function createJobRepository({ databaseUrl, pool: suppliedPool } = 
       });
     },
 
-    /** Último snapshot de cada loja, no formato esperado por `calculateScoresByGame`. */
-    async loadLatestSnapshots({ asOf = new Date() } = {}) {
+    /**
+     * Último snapshot VÁLIDO de cada loja nas últimas `maxAgeHours` horas. Uma falha
+     * pontual mantém o último dado bom (como a metodologia descreve); uma loja sem
+     * coleta válida dentro da janela fica de fora do cálculo do "agora".
+     */
+    async loadLatestSnapshots({ asOf = new Date(), maxAgeHours = 24 } = {}) {
       return enqueue(async (client) => {
         const result = await client.query(`
           SELECT DISTINCT ON (s.source) s.source, s.status, s.total_entries AS "totalEntries", s.captured_at AS "capturedAt",
@@ -219,7 +229,8 @@ export async function createJobRepository({ databaseUrl, pool: suppliedPool } = 
               ORDER BY e.position) FILTER (WHERE e.game_id IS NOT NULL), '[]') AS entries
           FROM ranking_snapshots s LEFT JOIN ranking_entries e ON e.snapshot_id = s.id
           WHERE s.captured_at <= $1 AND s.status = 'success'
-          GROUP BY s.id ORDER BY s.source, s.captured_at DESC`, [asOf]);
+            AND s.captured_at > $1::timestamptz - make_interval(hours => $2)
+          GROUP BY s.id ORDER BY s.source, s.captured_at DESC`, [asOf, maxAgeHours]);
         return Object.fromEntries(result.rows.map((row) => [row.source, row]));
       });
     },
@@ -246,6 +257,14 @@ export async function createJobRepository({ databaseUrl, pool: suppliedPool } = 
           days[row.day][row.source] = { status: row.status, totalEntries: row.totalEntries, entries: row.entries };
         }
         return days;
+      });
+    },
+
+    /** Lojas em que cada jogo é vendido (vínculos em store_listings). */
+    async loadStoreAvailability() {
+      return enqueue(async (client) => {
+        const result = await client.query("SELECT game_id, array_agg(store::text) AS stores FROM store_listings GROUP BY game_id");
+        return new Map(result.rows.map((row) => [row.game_id, new Set(row.stores)]));
       });
     },
 

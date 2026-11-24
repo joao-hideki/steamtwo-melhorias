@@ -125,6 +125,7 @@ function createDemoCatalogService({ games = mockGames } = {}) {
       async add(listId, slug) {
         if (!games.some((game) => game.slug === slug)) throw new ServiceError("Jogo não encontrado", 404);
         const slugs = lists.get(listId) ?? [];
+        // Duplicata antes do limite: re-adicionar um item numa lista cheia não é erro.
         if (slugs.includes(slug)) return { added: false };
         if (slugs.length >= WATCHLIST_LIMIT) throw new ServiceError(`A lista aceita no máximo ${WATCHLIST_LIMIT} jogos`, 409);
         lists.set(listId, [slug, ...slugs]);
@@ -200,13 +201,13 @@ function createDatabaseCatalogService({ repository }) {
 
     watchlist: {
       list: (listId) => repository.watchlist.list(listId),
+      // Mesmo contrato do modo demonstração: 201 {added:true} na inclusão,
+      // 200 {added:false} se já estava na lista, 404 jogo inexistente, 409 lista cheia.
       async add(listId, slug) {
-        if ((await repository.watchlist.count(listId)) >= WATCHLIST_LIMIT) {
-          throw new ServiceError(`A lista aceita no máximo ${WATCHLIST_LIMIT} jogos`, 409);
-        }
-        const found = await repository.watchlist.add(listId, slug);
-        if (!found) throw new ServiceError("Jogo não encontrado", 404);
-        return { added: true };
+        const outcome = await repository.watchlist.add(listId, slug, WATCHLIST_LIMIT);
+        if (outcome === "not-found") throw new ServiceError("Jogo não encontrado", 404);
+        if (outcome === "full") throw new ServiceError(`A lista aceita no máximo ${WATCHLIST_LIMIT} jogos`, 409);
+        return { added: outcome === "added" };
       },
       async remove(listId, slug) {
         return { removed: await repository.watchlist.remove(listId, slug) };

@@ -2,6 +2,9 @@ import { Router } from "express";
 import { z } from "zod";
 import { createCatalogService } from "../services/catalog-service.js";
 
+// Mensagens de validação do Zod em português (ex.: "Muito grande: esperado que number fosse <=100").
+z.config(z.locales.pt());
+
 const storeSchema = z.enum(["all", "steam", "epic"]).default("all");
 const periodSchema = z.enum(["now", "week", "all-time"]).default("now");
 const pageSchema = z.coerce.number().int().min(1).max(1000).default(1);
@@ -13,8 +16,9 @@ const methodology = {
   name: "Índice SteamTwo",
   formula: "100 × (N - posição + 1) / N",
   rules: [
-    "Jogos presentes nas duas lojas recebem a média das notas disponíveis.",
-    "Ausência em uma coleta válida vale zero; indisponibilidade da fonte é excluída.",
+    "O índice é a média das notas das lojas que vendem o jogo.",
+    "Ausência no ranking de uma loja que vende o jogo vale zero; lojas que não vendem o jogo não entram na média.",
+    "Uma loja sem coleta válida nas últimas 24 horas é excluída do cálculo do 'agora'.",
     "A semana representa a média dos sete snapshots diários válidos.",
     "De sempre é popularidade histórica, não uma contagem de horas jogadas.",
   ],
@@ -32,7 +36,9 @@ const handle = (fn) => async (request, response, next) => {
 
 export function createApiRouter({ catalogService = createCatalogService(), healthCheck } = {}) {
   const router = Router();
-  const listId = (request) => listIdSchema.parse(request.get("x-list-id"));
+  // Validação embrulhada em objetos para o erro apontar o campo ("X-List-Id", "slug").
+  const listId = (request) => z.object({ "X-List-Id": listIdSchema }).parse({ "X-List-Id": request.get("x-list-id") })["X-List-Id"];
+  const slugParam = (request) => z.object({ slug: slugSchema }).parse({ slug: request.params.slug }).slug;
 
   router.get("/health", async (_request, response, next) => {
     try {
@@ -70,7 +76,7 @@ export function createApiRouter({ catalogService = createCatalogService(), healt
   }));
 
   router.get("/games/:slug", handle(async (request, response) => {
-    const game = await catalogService.game(slugSchema.parse(request.params.slug));
+    const game = await catalogService.game(slugParam(request));
     if (!game) return response.status(404).json({ error: "Jogo não encontrado" });
     return response.json(game);
   }));
@@ -85,12 +91,12 @@ export function createApiRouter({ catalogService = createCatalogService(), healt
   }));
 
   router.put("/list/:slug", handle(async (request, response) => {
-    const result = await catalogService.watchlist.add(listId(request), slugSchema.parse(request.params.slug));
+    const result = await catalogService.watchlist.add(listId(request), slugParam(request));
     response.status(result.added ? 201 : 200).json(result);
   }));
 
   router.delete("/list/:slug", handle(async (request, response) => {
-    const result = await catalogService.watchlist.remove(listId(request), slugSchema.parse(request.params.slug));
+    const result = await catalogService.watchlist.remove(listId(request), slugParam(request));
     response.status(result.removed ? 200 : 404).json(result);
   }));
 

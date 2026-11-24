@@ -66,6 +66,18 @@ describe("catálogo automático pela loja Steam", () => {
     });
   });
 
+  it("usa header_image quando a arte de biblioteca não existe no CDN", async () => {
+    const { createSteamStoreClient } = await import("../../server/integrations/steam-store-client.js");
+    const fetchImpl = vi.fn(async (url, options = {}) => {
+      if (options.method === "HEAD") return { ok: !String(url).includes("library_600x900") };
+      return { ok: true, json: async () => ({ 42: { success: true, data: { name: "Jogo Novo", header_image: "https://cdn/header.jpg" } } }) };
+    });
+    const game = await createSteamStoreClient({ fetchImpl, delayMs: 0 }).getAppDetails(42);
+    expect(game.coverUrl).toBe("https://cdn/header.jpg");
+    expect(game.heroUrl).toContain("library_hero.jpg");
+    expect(game).not.toHaveProperty("headerUrl");
+  });
+
   it("ignora apps sem dados na loja", () => {
     expect(normalizeSteamAppDetails(1, { 1: { success: false } })).toBeNull();
   });

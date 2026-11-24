@@ -22,7 +22,13 @@ export function calculateSnapshotScore({ steam, epic } = {}) {
   return scores.reduce((sum, score) => sum + score, 0) / scores.length;
 }
 
-export function calculateScoresByGame(snapshots) {
+/**
+ * `availability` (opcional): Map gameId → Set de lojas onde o jogo é vendido.
+ * Quando informado, a ausência só vale zero numa loja que vende o jogo — um título
+ * exclusivo da Steam não é punido por não aparecer no ranking da Epic. Sem o mapa,
+ * vale a regra original (ausência em qualquer coleta válida = zero).
+ */
+export function calculateScoresByGame(snapshots, { availability } = {}) {
   const gameIds = new Set();
   for (const snapshot of Object.values(snapshots)) {
     for (const entry of snapshot?.entries ?? []) gameIds.add(entry.gameId);
@@ -32,6 +38,7 @@ export function calculateScoresByGame(snapshots) {
     for (const store of ["steam", "epic"]) {
       const snapshot = snapshots[store];
       if (!snapshot) continue;
+      if (availability && !availability.get(gameId)?.has(store)) continue;
       const entry = snapshot.entries?.find((item) => item.gameId === gameId);
       perStore[store] = {
         status: snapshot.status,
@@ -47,7 +54,7 @@ export function calculateScoresByGame(snapshots) {
 
 /** Seven calendar days ending at endAt. A missing source-wide snapshot is excluded,
  * while a valid snapshot without a game counts as zero. */
-export function calculateWeeklyScores({ dailySnapshots, endAt = new Date() }) {
+export function calculateWeeklyScores({ dailySnapshots, endAt = new Date(), availability }) {
   const dayEnd = new Date(endAt);
   dayEnd.setUTCHours(23, 59, 59, 999);
   const perGame = new Map();
@@ -56,7 +63,7 @@ export function calculateWeeklyScores({ dailySnapshots, endAt = new Date() }) {
     const start = new Date(dayEnd.getTime() - offset * DAY_MS);
     start.setUTCHours(0, 0, 0, 0);
     const key = start.toISOString().slice(0, 10);
-    const ranking = calculateScoresByGame(dailySnapshots[key] ?? {});
+    const ranking = calculateScoresByGame(dailySnapshots[key] ?? {}, { availability });
     const sourceSnapshots = Object.values(dailySnapshots[key] ?? {});
     const hasValidSource = sourceSnapshots.some((snapshot) => snapshot?.status !== "outage");
     if (!hasValidSource) continue;

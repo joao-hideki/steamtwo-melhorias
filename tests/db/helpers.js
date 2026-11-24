@@ -22,6 +22,8 @@ function resolveTestDatabaseUrl() {
 
 export const testDatabaseUrl = resolveTestDatabaseUrl();
 if (!testDatabaseUrl) {
+  // No CI (REQUIRE_DB_TESTS=1) pular a integração é falha, não sucesso silencioso.
+  if (process.env.REQUIRE_DB_TESTS === "1") throw new Error("REQUIRE_DB_TESTS=1, mas nenhum banco de teste foi configurado.");
   console.warn("[tests/db] PULADO: defina DATABASE_URL (.env) ou TEST_DATABASE_URL para rodar a integração com PostgreSQL.");
 }
 
@@ -42,6 +44,11 @@ async function ensureDatabaseExists(url) {
 
 /** Recria o schema do zero e aplica todas as migrações reais do projeto. */
 export async function resetDatabase() {
+  // Proteção: o reset apaga o schema inteiro, então só roda em banco cujo nome termina em _test.
+  const databaseName = new URL(testDatabaseUrl).pathname.slice(1);
+  if (!databaseName.endsWith("_test")) {
+    throw new Error(`Recusado: o banco de teste deve terminar em "_test" (recebido "${databaseName}").`);
+  }
   await ensureDatabaseExists(testDatabaseUrl);
   const client = new pg.Client({ connectionString: testDatabaseUrl });
   await client.connect();

@@ -56,6 +56,15 @@ describe.skipIf(!testDatabaseUrl)("PostgreSQL — integração completa", () => 
     expect(rows[0].total).toBe(10);
   });
 
+  it("seed não sobrescreve dado que veio de outra fonte (ex.: popularidade da IGDB)", async () => {
+    await jobs.upsertCatalogGames([{ externalId: "1", slug: "portal-2", title: "Portal 2", popularity: 12.5, genres: [{ name: "Quebra-cabeça" }] }], { source: "igdb" });
+    await jobs.upsertCatalogGames(seedCatalog(), { source: "seed" });
+    const game = await pool.query(`SELECT igdb_popularity::float AS pop,
+      (SELECT array_agg(ge.name) FROM game_genres gg JOIN genres ge ON ge.id = gg.genre_id WHERE gg.game_id = g.id) AS genres
+      FROM games g WHERE slug = 'portal-2'`);
+    expect(game.rows[0]).toEqual({ pop: 12.5, genres: ["Quebra-cabeça"] });
+  });
+
   it("coleta grava snapshots, vincula a Epic pelo título e registra o sync_run com sucesso", async () => {
     const result = await syncRankings({
       repository: jobs,
@@ -98,9 +107,11 @@ describe.skipIf(!testDatabaseUrl)("PostgreSQL — integração completa", () => 
     expect(result.status).toBe("success");
     const { rows } = await pool.query(`SELECT g.slug, r.rank, r.score::float AS score FROM game_rankings r
       JOIN games g ON g.id = r.game_id WHERE r.period = 'now' AND r.store = 'all' ORDER BY r.rank`);
-    // CS2: 1º de 4 na Steam (100) e ausente numa Epic válida (0) → média 50.
-    expect(rows[0]).toMatchObject({ slug: "counter-strike-2", rank: 1, score: 50 });
-    // Cyberpunk: 4º de 4 na Steam (25) e 2º de 2 na Epic (50) → 37,5.
+    // CS2: 1º de 4 na Steam (100); não é vendido na Epic (sem vínculo) → a Epic não entra na média.
+    expect(rows[0]).toMatchObject({ slug: "counter-strike-2", rank: 1, score: 100 });
+    // Elden Ring: 2º de 4 na Steam → 75.
+    expect(rows.find((row) => row.slug === "elden-ring").score).toBeCloseTo(75);
+    // Cyberpunk: vendido nas duas; 4º de 4 na Steam (25) e 2º de 2 na Epic (50) → 37,5.
     expect(rows.find((row) => row.slug === "cyberpunk-2077").score).toBeCloseTo(37.5);
     const allTime = await pool.query("SELECT count(*)::int AS total FROM game_rankings WHERE period = 'all-time'");
     expect(allTime.rows[0].total).toBe(10);
@@ -153,13 +164,21 @@ describe.skipIf(!testDatabaseUrl)("PostgreSQL — integração completa", () => 
   });
 
   it("busca trata % e _ como texto (sem curinga) e o SQL é parametrizado", async () => {
-    const response = await request(app).get("/api/games").query({ q: "%' OR 1=1 --" }).expect(200);
-    expect(response.body.items).toHaveLength(0);
+    // Sem o escape, "%" e "_" casariam com todos os 10 jogos.
+    for (const q of ["%", "_", "%%"]) {
+      const response = await request(app).get("/api/games").query({ q }).expect(200);
+      expect(response.body.pagination.total).toBe(0);
+    }
+    const injection = await request(app).get("/api/games").query({ q: "%' OR 1=1 --", genre: "a';--" }).expect(200);
+    expect(injection.body.items).toHaveLength(0);
   });
 
   it("lista pessoal persiste no PostgreSQL (adicionar, listar, remover)", async () => {
-    await request(app).put("/api/list/elden-ring").set("X-List-Id", LIST_ID).expect(201);
-    await request(app).put("/api/list/elden-ring").set("X-List-Id", LIST_ID).expect(201); // idempotente
+    const first = await request(app).put("/api/list/elden-ring").set("X-List-Id", LIST_ID).expect(201);
+    expect(first.body).toEqual({ added: true });
+    // Idempotente e com o mesmo contrato do modo demonstração: já estava → 200 {added:false}.
+    const again = await request(app).put("/api/list/elden-ring").set("X-List-Id", LIST_ID).expect(200);
+    expect(again.body).toEqual({ added: false });
     await request(app).put("/api/list/portal-2").set("X-List-Id", LIST_ID).expect(201);
     const list = await request(app).get("/api/list").set("X-List-Id", LIST_ID).expect(200);
     expect(list.body.items.map((item) => item.slug)).toEqual(["portal-2", "elden-ring"]);
@@ -171,5 +190,26 @@ describe.skipIf(!testDatabaseUrl)("PostgreSQL — integração completa", () => 
     await request(app).delete("/api/list/portal-2").set("X-List-Id", LIST_ID).expect(404);
     await request(app).put("/api/list/jogo-que-nao-existe").set("X-List-Id", LIST_ID).expect(404);
     await request(app).get("/api/list").set("X-List-Id", "nao-e-uuid").expect(400);
+  });
+
+  it("lista cheia responde 409, mas re-adicionar um item que já está nela não é erro", async () => {
+    const fullList = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+    await pool.query(`INSERT INTO watchlist_items (list_id, game_id)
+      SELECT $1, id FROM games ORDER BY slug LIMIT 9`, [fullList]);
+    const repository = createCatalogReadRepository(pool);
+    const inList = (await pool.query(`SELECT g.slug FROM watchlist_items w JOIN games g ON g.id = w.game_id WHERE list_id = $1 LIMIT 1`, [fullList])).rows[0].slug;
+    const missing = (await pool.query(`SELECT slug FROM games WHERE id NOT IN (SELECT game_id FROM watchlist_items WHERE list_id = $1) LIMIT 1`, [fullList])).rows[0].slug;
+    expect(await repository.watchlist.add(fullList, inList, 9)).toBe("exists");
+    expect(await repository.watchlist.add(fullList, missing, 9)).toBe("full");
+    expect(await repository.watchlist.add(fullList, "nao-existe", 9)).toBe("not-found");
+  });
+
+  // Fica por último: muda o "agora" calculado.
+  it("loja sem snapshot válido nas últimas 24 h sai do cálculo do 'agora'", async () => {
+    const later = new Date(capturedAt.getTime() + 25 * 3_600_000);
+    const result = await syncScores({ repository: jobs, now: () => later });
+    expect(result.counts.all.now).toBe(0);
+    const ranking = await request(app).get("/api/rankings").query({ period: "now" }).expect(200);
+    expect(ranking.body.items).toEqual([]);
   });
 });

@@ -25,6 +25,18 @@ describe("SteamTwo Index", () => {
     })).toBe(100);
   });
 
+  it("com disponibilidade, ausência só vale zero na loja que vende o jogo", () => {
+    const snapshots = {
+      steam: { status: "success", totalEntries: 10, entries: [{ gameId: "exclusivo-steam", position: 1 }, { gameId: "nas-duas", position: 2 }] },
+      epic: { status: "success", totalEntries: 10, entries: [{ gameId: "nas-duas", position: 1 }] },
+    };
+    const availability = new Map([["exclusivo-steam", new Set(["steam"])], ["nas-duas", new Set(["steam", "epic"])]]);
+    const regraOriginal = calculateScoresByGame(snapshots);
+    expect(regraOriginal.find((item) => item.gameId === "exclusivo-steam").score).toBe(50);
+    const comDisponibilidade = calculateScoresByGame(snapshots, { availability });
+    expect(comDisponibilidade.map(({ gameId, score }) => [gameId, score])).toEqual([["exclusivo-steam", 100], ["nas-duas", 95]]);
+  });
+
   it("ordena desempates de forma determinística", () => {
     const result = calculateScoresByGame({
       steam: { status: "success", totalEntries: 2, entries: [{ gameId: "b", position: 1 }, { gameId: "a", position: 1 }] },
