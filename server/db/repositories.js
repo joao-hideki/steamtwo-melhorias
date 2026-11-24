@@ -18,9 +18,16 @@ export function createRepositories(pool) {
           INSERT INTO games (slug, title, summary, cover_url, hero_url, igdb_id, igdb_popularity, released_at)
           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
           ON CONFLICT (slug) DO UPDATE SET
-            title = EXCLUDED.title, summary = EXCLUDED.summary, cover_url = EXCLUDED.cover_url,
-            hero_url = EXCLUDED.hero_url, igdb_id = EXCLUDED.igdb_id,
-            igdb_popularity = EXCLUDED.igdb_popularity, released_at = EXCLUDED.released_at, updated_at = now()
+            -- Fontes diferentes (seed, Steam, IGDB) completam o mesmo jogo: um valor
+            -- ausente na fonte atual não pode apagar o que outra fonte já gravou.
+            title = EXCLUDED.title,
+            summary = COALESCE(EXCLUDED.summary, games.summary),
+            cover_url = COALESCE(EXCLUDED.cover_url, games.cover_url),
+            hero_url = COALESCE(EXCLUDED.hero_url, games.hero_url),
+            igdb_id = COALESCE(EXCLUDED.igdb_id, games.igdb_id),
+            igdb_popularity = COALESCE(EXCLUDED.igdb_popularity, games.igdb_popularity),
+            released_at = COALESCE(EXCLUDED.released_at, games.released_at),
+            updated_at = now()
           RETURNING id, slug, title`, [
           game.slug, game.title, game.summary ?? null, game.coverUrl ?? null, game.heroUrl ?? null,
           game.igdbId ?? null, game.igdbPopularity ?? null, game.releasedAt ?? null,
