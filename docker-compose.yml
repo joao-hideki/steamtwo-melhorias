@@ -30,9 +30,10 @@ services:
     volumes:
       - steamtwo_pgdata:/var/lib/postgresql/data
 
+  # Sem nome fixo de imagem: cada clone/projeto gera as suas (<projeto>-migrate, -api...),
+  # então um clone nunca roda a imagem antiga de outro. O cache do Docker evita rebuild duplicado.
   migrate:
     build: .
-    image: steamtwo-app
     environment: *app-env
     healthcheck:
       disable: true
@@ -43,8 +44,7 @@ services:
     restart: "no"
 
   api:
-    image: steamtwo-app
-    pull_policy: never  # reutiliza a imagem construída pelo serviço migrate
+    build: .
     environment: *app-env
     ports:
       - "3001:3001"
@@ -56,8 +56,7 @@ services:
   # Coleta real: descobre jogos na Steam, grava snapshots Steam/Epic e recalcula o
   # índice. Roda ao subir e depois a cada SYNC_INTERVAL_MINUTES (padrão: 30).
   sync:
-    image: steamtwo-app
-    pull_policy: never
+    build: .
     environment: *app-env
     healthcheck:
       disable: true  # serviço sem HTTP: o healthcheck da imagem vale só para a api
@@ -68,13 +67,12 @@ services:
     restart: unless-stopped
 
   # Verificação completa sem Node local (inclui integração com PostgreSQL):
-  #   docker compose --profile test run --rm test
+  #   docker compose --profile test run --rm --build test
   test:
     profiles: ["test"]
     build:
       context: .
       target: build
-    image: steamtwo-test
     environment:
       TEST_DATABASE_URL: postgres://${POSTGRES_USER:-steamtwo}:${POSTGRES_PASSWORD:-steamtwo}@postgres:5432/steamtwo_test
     command: ["sh", "-c", "npm test && npm run test:sites"]

@@ -10,8 +10,8 @@ FROM node:22-alpine
 ENV NODE_ENV=production
 WORKDIR /app
 COPY package.json package-lock.json .npmrc ./
-# node-pg-migrate (devDependency) é necessário para rodar as migrações no container.
-RUN npm ci --no-audit --no-fund --include=dev && npm cache clean --force
+# Só dependências de produção (node-pg-migrate é dependência de produção: o serviço migrate usa).
+RUN npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
 COPY --from=build /app/dist ./dist
 COPY migrations ./migrations
 COPY server ./server
