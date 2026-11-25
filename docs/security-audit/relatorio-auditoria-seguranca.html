@@ -1,0 +1,777 @@
+<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'><title>Relatório de Auditoria de Segurança — SteamTwo</title><style>
+@page {
+  size: A4;
+  margin: 2cm 2cm 2cm 2cm;
+  @top-left { content: "Relatório de Auditoria de Segurança — SteamTwo"; font: 8pt 'Segoe UI', sans-serif; color: #6B7280; vertical-align: bottom; padding-bottom: 4mm; }
+  @top-right { content: "Confidencial · uso interno"; font: 8pt 'Segoe UI', sans-serif; color: #9CA3AF; vertical-align: bottom; padding-bottom: 4mm; }
+  @bottom-left { content: "SteamTwo · auditoria de 24/11/2026"; font: 8pt 'Segoe UI', sans-serif; color: #9CA3AF; vertical-align: top; padding-top: 4mm; }
+  @bottom-right { content: "Página " counter(page) " de " counter(pages); font: 8pt 'Segoe UI', sans-serif; color: #6B7280; vertical-align: top; padding-top: 4mm; }
+}
+@page :first {
+  @top-left { content: none; } @top-right { content: none; }
+  @bottom-left { content: none; } @bottom-right { content: none; }
+}
+* { box-sizing: border-box; }
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; font-size: 9.6pt; line-height: 1.5; color: #1F2937; margin: 0; background: #fff; }
+h1, h2, h3, h4 { color: #111827; line-height: 1.25; break-after: avoid; }
+h2 { font-size: 16pt; margin: 0 0 10px; padding-bottom: 6px; border-bottom: 2px solid #111827; }
+h3 { font-size: 11.5pt; margin: 18px 0 8px; }
+h4 { font-size: 10pt; margin: 10px 0 4px; }
+p { margin: 0 0 8px; }
+code { font-family: 'Cascadia Mono', Consolas, monospace; font-size: 8.4pt; background: #F3F4F6; padding: 0 3px; border-radius: 3px; word-break: break-word; }
+.section { break-before: page; }
+.muted { color: #6B7280; }
+.small { font-size: 8.6pt; }
+
+/* capa */
+.cover { }
+.cover .band { background: #111827; color: #fff; padding: 28px 30px 26px; border-radius: 6px; }
+.cover .kicker { font-size: 9pt; letter-spacing: .14em; text-transform: uppercase; color: #9CA3AF; margin-bottom: 10px; }
+.cover h1 { color: #fff; font-size: 25pt; margin: 0 0 8px; }
+.cover .date { color: #D1D5DB; font-size: 11pt; }
+.cover .sevbar { display: flex; height: 8px; margin-top: 18px; border-radius: 4px; overflow: hidden; }
+.cover .sevbar span { flex: 1; }
+.kv { width: 100%; border-collapse: collapse; margin-top: 4px; }
+.kv th { text-align: left; vertical-align: top; width: 27%; padding: 5px 10px 5px 0; color: #374151; font-weight: 600; border-bottom: 1px solid #E5E7EB; }
+.kv td { padding: 5px 0; border-bottom: 1px solid #E5E7EB; }
+.cover h3 { margin-top: 18px; }
+.method { width: 100%; border-collapse: collapse; }
+.method td { padding: 5px 8px; vertical-align: top; border-bottom: 1px solid #E5E7EB; font-size: 8.6pt; }
+.method td:first-child { width: 31%; font-weight: 600; color: #111827; }
+
+/* resumo */
+.kpis { display: flex; gap: 8px; margin: 10px 0 14px; }
+.kpi { flex: 1; border: 1px solid #E5E7EB; border-top: 5px solid; border-radius: 6px; padding: 8px 10px; }
+.kpi b { display: block; font-size: 20pt; line-height: 1.1; color: #111827; }
+.kpi span { font-size: 8.4pt; color: #4B5563; }
+.charts { display: flex; gap: 14px; align-items: center; margin: 4px 0 10px; }
+.chart-box { border: 1px solid #E5E7EB; border-radius: 6px; padding: 8px 10px; }
+.chart-box h4 { margin: 0 0 2px; }
+.chart-box svg { width: 100%; height: auto; display: block; }
+.donut { flex: 0 0 34%; }
+.bars { flex: 1; }
+.legend { list-style: none; padding: 0; margin: 4px 0 0; font-size: 8.4pt; }
+.legend li { display: flex; align-items: center; gap: 6px; margin: 1px 0; }
+.legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.callout { border-left: 4px solid #111827; background: #F9FAFB; padding: 8px 12px; margin: 8px 0; }
+
+/* chips e tabelas */
+.chip { display: inline-block; color: #fff; font-size: 7.6pt; font-weight: 700; padding: 2px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }
+.chip.strong { background: #059669; }
+table.grid { width: 100%; border-collapse: collapse; margin: 6px 0 12px; font-size: 8.6pt; }
+table.grid th { background: #111827; color: #fff; text-align: left; padding: 6px 8px; font-weight: 600; }
+table.grid td { padding: 6px 8px; border-bottom: 1px solid #E5E7EB; vertical-align: top; }
+table.grid tr { break-inside: avoid; }
+table.grid tr:nth-child(even) td { background: #F9FAFB; }
+table.grid td.sev { width: 13%; }
+table.grid td.loc { width: 44%; }
+table.grid td.loc code { font-size: 7.8pt; white-space: nowrap; }
+table.routes td:nth-child(2) code { white-space: nowrap; }
+table.grid td code { background: transparent; padding: 0; }
+.cat-title { display: flex; align-items: baseline; gap: 8px; margin: 14px 0 4px; }
+.cat-title h3 { margin: 0; }
+.na { font-size: 8.6pt; color: #4B5563; margin: 0 0 6px; }
+
+/* pontos fortes/fracos */
+.cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
+.cards .card { margin: 0; }
+.card { border: 1px solid #E5E7EB; border-left: 5px solid; border-radius: 6px; padding: 7px 10px; margin: 0 0 7px; break-inside: avoid; }
+.card h4 { margin: 0 0 3px; font-size: 9.4pt; }
+.card p { margin: 0; font-size: 8.5pt; color: #374151; }
+.card .tag { font-size: 7.6pt; color: #6B7280; text-transform: uppercase; letter-spacing: .05em; }
+
+/* detalhes */
+.finding { border: 1px solid #E5E7EB; border-radius: 6px; margin: 0 0 12px; break-inside: avoid; overflow: hidden; }
+.finding header { display: flex; gap: 8px; align-items: center; padding: 7px 10px; background: #F9FAFB; border-bottom: 1px solid #E5E7EB; }
+.finding header b { font-size: 9.8pt; }
+.finding .body { padding: 8px 10px; }
+.finding dl { margin: 0; display: grid; grid-template-columns: 24% 76%; row-gap: 4px; }
+.finding dt { font-weight: 600; color: #374151; font-size: 8.6pt; }
+.finding dd { margin: 0; font-size: 8.6pt; }
+pre.snippet { font-family: 'Cascadia Mono', Consolas, monospace; font-size: 7.8pt; background: #0F172A; color: #E2E8F0; padding: 6px 8px; border-radius: 4px; margin: 2px 0 6px; white-space: pre-wrap; word-break: break-word; }
+.snippet-label { font-family: 'Cascadia Mono', Consolas, monospace; font-size: 7.8pt; color: #374151; font-weight: 600; }
+
+/* recomendações */
+.rec { display: flex; gap: 10px; border: 1px solid #E5E7EB; border-radius: 6px; padding: 8px 10px; margin: 0 0 8px; break-inside: avoid; }
+.rec .p { flex: 0 0 38px; height: 38px; border-radius: 6px; background: #111827; color: #fff; font-weight: 800; display: flex; align-items: center; justify-content: center; font-size: 11pt; }
+.rec h4 { margin: 0 0 2px; }
+.rec p { margin: 0; font-size: 8.6pt; }
+
+/* issues */
+.issue { break-inside: auto; margin: 0 0 14px; }
+.issue-head { display: flex; gap: 8px; align-items: center; margin: 0 0 4px; }
+pre.md { font-family: 'Cascadia Mono', Consolas, monospace; font-size: 7.9pt; line-height: 1.42; background: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 6px; padding: 10px 12px; white-space: pre-wrap; word-break: break-word; margin: 0; color: #0F172A; }
+</style></head><body><section class='cover'><div class='band'><div class='kicker'>Auditoria de segurança de código</div><h1>Relatório de Auditoria de Segurança — SteamTwo</h1><div class='date'>24 de novembro de 2026 · HEAD 4222366 · branch main</div><div class='sevbar'><span style="background:#B91C1C"></span><span style="background:#EA580C"></span><span style="background:#D97706"></span><span style="background:#2563EB"></span><span style="background:#6B7280"></span><span style="background:#059669"></span></div></div><h3>Escopo auditado</h3><table class='kv'><tr><th>Auditor</th><td>João Hideki Takayasu — Tópicos Especiais em Informática (Fatec), Prof. David Silva</td></tr><tr><th>Autorização</th><td>SaaS de autoria e responsabilidade do próprio auditor (dono do repositório). Escopo restrito a esse código e a instâncias locais com dados fictícios; nenhum sistema de terceiros foi testado.</td></tr><tr><th>Repositório</th><td><a href='https://github.com/joao-hideki/steamtwo-melhorias'>github.com/joao-hideki/steamtwo-melhorias</a> — branch <code>main</code>, HEAD <code>4222366</code> (24/11/2026), 12 commits</td></tr><tr><th>Projeto-base</th><td><code>fc96a53</code> “Initial SteamTwo project”, de outro autor; cada achado registra se já existia nele</td></tr><tr><th>Código revisado</th><td>server/ (API, repositórios, jobs, integrações), src/ (React), shared/, worker/, scripts/, migrations/, tests/</td></tr><tr><th>Deploy e docs</th><td>Dockerfile, docker-compose.yml, .github/workflows/ci.yml, .env.example, .gitignore, .dockerignore, vite.config.mjs, .openai/hosting.json, README.md, AGENTS.md, docs/evidencias</td></tr><tr><th>Verificação dinâmica</th><td>Cópia isolada do HEAD (git archive) no diretório temporário: build Vite do bundle, API em modo demo (porta 3901) e em modo banco (porta 3902) com PostgreSQL descartável em 127.0.0.1:55432. Só dados fictícios; tudo derrubado ao final.</td></tr></table><h3>Stack detectada</h3><table class='kv'><tr><th>Linguagem</th><td>JavaScript (ES modules), Node 22</td></tr><tr><th>Backend</th><td>Express 5 + validação Zod 4</td></tr><tr><th>Banco / acesso</th><td>PostgreSQL 17 via <code>pg</code> (SQL manual com placeholders), migrações node-pg-migrate</td></tr><tr><th>Autenticação</th><td>Nenhuma. Não há login, sessão, JWT nem papéis. A “lista pessoal” usa um UUID anônimo gerado no navegador e enviado no cabeçalho <code>X-List-Id</code></td></tr><tr><th>Frontend</th><td>React 19.2 + Vite 6 (SPA, roteamento por <code>history.pushState</code>)</td></tr><tr><th>Deploy</th><td>Docker (imagem única, usuário <code>node</code>), Docker Compose (postgres, migrate, api, sync, test), GitHub Actions; worker de Sites herdado do projeto-base. Sem Helm/Terraform</td></tr><tr><th>Integrações</th><td>Steam Web API e loja, Epic Store / egdata (scraping com cheerio), IGDB via OAuth client-credentials da Twitch (opcional)</td></tr></table><h3>Nota metodológica: como cada categoria foi mapeada para esta stack</h3><table class='method'><tr><td>1. Banco sem tranca (isolamento de dono)</td><td>Sem multi-tenant nem usuários: o único dado “de dono” é a tabela <code>watchlist_items</code>, isolada por filtro manual <code>list_id = $1</code>. Revisei todas as queries de listagem, contagem e agregação do repositório de leitura e do serviço demo para ver se cada uma filtra pelo <code>list_id</code> do chamador.</td></tr><tr><td>2. Permissão definida no navegador</td><td>Sem papéis: procurei gates de papel no frontend (isAdmin, role, canEdit…) e qualquer operação privilegiada exposta por HTTP (jobs, seed, migrações, diagnóstico). A categoria clássica não se aplica; avaliei o único endpoint operacional (<code>/api/status</code>).</td></tr><tr><td>3. IDOR</td><td>Enumerei os 11 handlers de <code>server/routes/index.js</code> e segui cada um até a query. Objetos por ID: jogos por <code>slug</code> (catálogo público) e itens da lista por (<code>X-List-Id</code>, <code>slug</code>). Confirmei a posse com duas listas fictícias (A e B) nos dois modos.</td></tr><tr><td>4. Chaves expostas (hardcode)</td><td>Busca por padrões de segredo na árvore de trabalho, em todo o histórico git (<code>git log --all -p</code>), em compose/CI/.env.example/docs e no bundle gerado (<code>dist/client/assets</code>). Atenção a defaults <code>${VAR:-valor}</code> e à falta de validação de startup.</td></tr><tr><td>5. Inputs sem tratamento (XSS)</td><td>Busca por dangerouslySetInnerHTML, innerHTML, eval, new Function, markdown, href/src controlados por dados e CSS com <code>url()</code>; rastreio da origem de cada URL até o produtor; checagem de libs de sanitização e cabeçalhos HTTP de defesa (CSP etc.).</td></tr></table><p class='small muted' style='margin-top:8px'>Regra da auditoria: só entram achados verificados no código real, com arquivo e linha. Severidades: crítica, alta, média, baixa e informativa (sem risco explorável hoje, registrado para endurecimento).</p></section><section class='section'><h2>Resumo executivo</h2><p>O SteamTwo tem uma superfície de ataque pequena: não há login, papéis nem dados pessoais; o catálogo é público e a única escrita pela API é a lista pessoal anônima. Nas cinco categorias, a auditoria encontrou <b>7 achados</b>, nenhum crítico ou alto. O mais relevante é a <b>senha padrão do PostgreSQL</b> usada como fallback no compose de produção (média). Os demais são vazamentos de informação operacional no <code>/api/status</code>, falta de cabeçalhos de defesa e pontos de endurecimento. Foram registrados <b>16 pontos fortes</b> com evidência, entre eles o isolamento correto da lista por dono, confirmado em execução.</p><div class='kpis'><div class='kpi' style='border-top-color:#B91C1C'><b>0</b><span>crítica</span></div><div class='kpi' style='border-top-color:#EA580C'><b>0</b><span>alta</span></div><div class='kpi' style='border-top-color:#D97706'><b>1</b><span>média</span></div><div class='kpi' style='border-top-color:#2563EB'><b>4</b><span>baixa</span></div><div class='kpi' style='border-top-color:#6B7280'><b>2</b><span>informativa</span></div><div class='kpi' style='border-top-color:#059669'><b>16</b><span>pontos fortes</span></div></div><div class='charts'><div class='chart-box donut'><h4>Achados por severidade</h4><svg xmlns:xlink="http://www.w3.org/1999/xlink" width="202.896pt" height="202.896pt" viewBox="0 0 202.896 202.896" xmlns="http://www.w3.org/2000/svg" version="1.1">
+ <metadata>
+  <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+   <cc:Work>
+    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+    <dc:date>2026-11-24T22:57:07.580343</dc:date>
+    <dc:format>image/svg+xml</dc:format>
+    <dc:creator>
+     <cc:Agent>
+      <dc:title>Matplotlib v3.11.2, https://matplotlib.org/</dc:title>
+     </cc:Agent>
+    </dc:creator>
+   </cc:Work>
+  </rdf:RDF>
+ </metadata>
+ <defs>
+  <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
+ </defs>
+ <g id="figure_1">
+  <g id="patch_1">
+   <path d="M 0 202.896 
+L 202.896 202.896 
+L 202.896 -0 
+L 0 -0 
+L 0 202.896 
+z
+" style="fill: none"/>
+  </g>
+  <g id="axes_1">
+   <g id="patch_2">
+    <path d="M 160.396843 54.437867 
+C 153.334766 45.582302 144.367137 38.430857 134.16214 33.516389 
+C 123.957143 28.601921 112.774692 26.0496 101.448 26.0496 
+L 101.448 53.193024 
+C 108.697083 53.193024 115.853851 54.82651 122.385049 57.971769 
+C 128.916248 61.117028 134.65553 65.693953 139.175259 71.361515 
+z
+" style="fill: #d97706; stroke: #ffffff; stroke-width: 2.5; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_3">
+    <path d="M 27.939995 118.225722 
+C 30.460421 129.268431 35.43708 139.602569 42.499157 148.458133 
+C 49.561234 157.313698 58.528863 164.465143 68.73386 169.379611 
+C 78.938857 174.294079 90.121308 176.8464 101.448 176.8464 
+C 112.774692 176.8464 123.957143 174.294079 134.16214 169.379611 
+C 144.367137 164.465143 153.334766 157.313698 160.396843 148.458133 
+C 167.45892 139.602569 172.435579 129.268431 174.956005 118.225722 
+C 177.476431 107.183014 177.476431 95.712986 174.956005 84.670278 
+C 172.435579 73.627569 167.45892 63.293431 160.396843 54.437867 
+L 139.175259 71.361515 
+C 143.694989 77.029076 146.88005 83.642924 148.493123 90.710258 
+C 150.106196 97.777591 150.106196 105.118409 148.493123 112.185742 
+C 146.88005 119.253076 143.694989 125.866924 139.175259 131.534485 
+C 134.65553 137.202047 128.916248 141.778972 122.385049 144.924231 
+C 115.853851 148.06949 108.697083 149.702976 101.448 149.702976 
+C 94.198917 149.702976 87.042149 148.06949 80.510951 144.924231 
+C 73.979752 141.778972 68.24047 137.202047 63.720741 131.534485 
+C 59.201011 125.866924 56.01595 119.253076 54.402877 112.185742 
+z
+" style="fill: #2563eb; stroke: #ffffff; stroke-width: 2.5; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_4">
+    <path d="M 101.448 26.0496 
+C 90.121308 26.0496 78.938857 28.601921 68.73386 33.516389 
+C 58.528863 38.430857 49.561234 45.582302 42.499157 54.437867 
+C 35.43708 63.293431 30.460421 73.627569 27.939995 84.670278 
+C 25.419569 95.712986 25.419569 107.183014 27.939995 118.225722 
+L 54.402877 112.185742 
+C 52.789804 105.118409 52.789804 97.777591 54.402877 90.710258 
+C 56.01595 83.642924 59.201011 77.029076 63.720741 71.361515 
+C 68.24047 65.693953 73.979752 61.117028 80.510951 57.971769 
+C 87.042149 54.82651 94.198917 53.193024 101.448 53.193024 
+z
+" style="fill: #6b7280; stroke: #ffffff; stroke-width: 2.5; stroke-linejoin: miter"/>
+   </g>
+   <g id="matplotlib.axis_1"/>
+   <g id="matplotlib.axis_2"/>
+   <g id="text_1">
+    <text style="font-weight: 700; font-size: 12px; font-family: 'Segoe UI', 'DejaVu Sans'; text-anchor: middle; fill: #ffffff" x="128.273595" y="48.849548" transform="rotate(-0 128.273595 48.849548)">1</text>
+   </g>
+   <g id="text_2">
+    <text style="font-weight: 700; font-size: 12px; font-family: 'Segoe UI', 'DejaVu Sans'; text-anchor: middle; fill: #ffffff" x="128.273595" y="160.25739" transform="rotate(-0 128.273595 160.25739)">4</text>
+   </g>
+   <g id="text_3">
+    <text style="font-weight: 700; font-size: 12px; font-family: 'Segoe UI', 'DejaVu Sans'; text-anchor: middle; fill: #ffffff" x="53.109949" y="66.005159" transform="rotate(-0 53.109949 66.005159)">2</text>
+   </g>
+   <g id="text_4">
+    <text style="font-weight: 700; font-size: 28px; font-family: 'Segoe UI', 'DejaVu Sans'; text-anchor: middle; fill: #111827" x="101.448" y="102.662222" transform="rotate(-0 101.448 102.662222)">7</text>
+   </g>
+   <g id="text_5">
+    <text style="font-size: 10px; font-family: 'Segoe UI', 'DejaVu Sans'; text-anchor: middle; fill: #6b7280" x="101.448" y="120.684964" transform="rotate(-0 101.448 120.684964)">achados</text>
+   </g>
+  </g>
+ </g>
+</svg>
+<ul class='legend'><li><i style='background:#B91C1C'></i>Crítica: 0</li><li><i style='background:#EA580C'></i>Alta: 0</li><li><i style='background:#D97706'></i>Média: 1</li><li><i style='background:#2563EB'></i>Baixa: 4</li><li><i style='background:#6B7280'></i>Informativa: 2</li></ul></div><div class='chart-box bars'><h4>Achados e pontos fortes por categoria</h4><svg xmlns:xlink="http://www.w3.org/1999/xlink" width="413.490312pt" height="247.524117pt" viewBox="0 0 413.490312 247.524117" xmlns="http://www.w3.org/2000/svg" version="1.1">
+ <metadata>
+  <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+   <cc:Work>
+    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+    <dc:date>2026-11-24T22:57:07.621825</dc:date>
+    <dc:format>image/svg+xml</dc:format>
+    <dc:creator>
+     <cc:Agent>
+      <dc:title>Matplotlib v3.11.2, https://matplotlib.org/</dc:title>
+     </cc:Agent>
+    </dc:creator>
+   </cc:Work>
+  </rdf:RDF>
+ </metadata>
+ <defs>
+  <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
+ </defs>
+ <g id="figure_1">
+  <g id="patch_1">
+   <path d="M -0 247.524117 
+L 413.490312 247.524117 
+L 413.490312 0 
+L -0 0 
+L -0 247.524117 
+z
+" style="fill: none"/>
+  </g>
+  <g id="axes_1">
+   <g id="patch_2">
+    <path d="M 132.870313 173.52 
+L 406.290313 173.52 
+L 406.290313 7.2 
+L 132.870313 7.2 
+L 132.870313 173.52 
+z
+" style="fill: none"/>
+   </g>
+   <g id="matplotlib.axis_1">
+    <g id="xtick_1">
+     <g id="line2d_1">
+      <path d="M 132.870313 173.52 
+L 132.870313 7.2 
+" clip-path="url(#pcfb6b8e8a5)" style="fill: none; stroke: #e5e7eb; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_2">
+      <defs>
+       <path id="me80901dfdb" d="M 0 0 
+L 0 3.5 
+" style="stroke: #4b5563; stroke-width: 0.8"/>
+      </defs>
+      <g>
+       <use xlink:href="#me80901dfdb" x="132.870313" y="173.52" style="fill: #4b5563; stroke: #4b5563; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_1">
+      <text style="font-size: 10px; font-family: 'Segoe UI', 'DejaVu Sans'; text-anchor: middle; fill: #4b5563" x="132.870313" y="187.800273" transform="rotate(-0 132.870313 187.800273)">0</text>
+     </g>
+    </g>
+    <g id="xtick_2">
+     <g id="line2d_3">
+      <path d="M 189.832813 173.52 
+L 189.832813 7.2 
+" clip-path="url(#pcfb6b8e8a5)" style="fill: none; stroke: #e5e7eb; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_4">
+      <g>
+       <use xlink:href="#me80901dfdb" x="189.832813" y="173.52" style="fill: #4b5563; stroke: #4b5563; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_2">
+      <text style="font-size: 10px; font-family: 'Segoe UI', 'DejaVu Sans'; text-anchor: middle; fill: #4b5563" x="189.832813" y="187.800273" transform="rotate(-0 189.832813 187.800273)">1</text>
+     </g>
+    </g>
+    <g id="xtick_3">
+     <g id="line2d_5">
+      <path d="M 246.795313 173.52 
+L 246.795313 7.2 
+" clip-path="url(#pcfb6b8e8a5)" style="fill: none; stroke: #e5e7eb; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_6">
+      <g>
+       <use xlink:href="#me80901dfdb" x="246.795313" y="173.52" style="fill: #4b5563; stroke: #4b5563; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_3">
+      <text style="font-size: 10px; font-family: 'Segoe UI', 'DejaVu Sans'; text-anchor: middle; fill: #4b5563" x="246.795313" y="187.800273" transform="rotate(-0 246.795313 187.800273)">2</text>
+     </g>
+    </g>
+    <g id="xtick_4">
+     <g id="line2d_7">
+      <path d="M 303.757812 173.52 
+L 303.757812 7.2 
+" clip-path="url(#pcfb6b8e8a5)" style="fill: none; stroke: #e5e7eb; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_8">
+      <g>
+       <use xlink:href="#me80901dfdb" x="303.757812" y="173.52" style="fill: #4b5563; stroke: #4b5563; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_4">
+      <text style="font-size: 10px; font-family: 'Segoe UI', 'DejaVu Sans'; text-anchor: middle; fill: #4b5563" x="303.757812" y="187.800273" transform="rotate(-0 303.757812 187.800273)">3</text>
+     </g>
+    </g>
+    <g id="xtick_5">
+     <g id="line2d_9">
+      <path d="M 360.720313 173.52 
+L 360.720313 7.2 
+" clip-path="url(#pcfb6b8e8a5)" style="fill: none; stroke: #e5e7eb; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_10">
+      <g>
+       <use xlink:href="#me80901dfdb" x="360.720313" y="173.52" style="fill: #4b5563; stroke: #4b5563; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_5">
+      <text style="font-size: 10px; font-family: 'Segoe UI', 'DejaVu Sans'; text-anchor: middle; fill: #4b5563" x="360.720313" y="187.800273" transform="rotate(-0 360.720313 187.800273)">4</text>
+     </g>
+    </g>
+    <g id="text_6">
+     <text style="font-size: 10px; font-family: 'Segoe UI', 'DejaVu Sans'; text-anchor: middle; fill: #374151" x="269.580312" y="201.307891" transform="rotate(-0 269.580312 201.307891)">quantidade</text>
+    </g>
+   </g>
+   <g id="matplotlib.axis_2">
+    <g id="ytick_1">
+     <g id="line2d_11">
+      <defs>
+       <path id="m39379d007d" d="M 0 0 
+L -3.5 0 
+" style="stroke: #374151; stroke-width: 0.8"/>
+      </defs>
+      <g>
+       <use xlink:href="#m39379d007d" x="132.870313" y="26.562532" style="fill: #374151; stroke: #374151; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_7">
+      <text style="font-size: 10px; font-family: 'Segoe UI', 'DejaVu Sans'; text-anchor: end; fill: #374151" x="125.870313" y="30.202668" transform="rotate(-0 125.870313 30.202668)">1. Banco sem tranca</text>
+     </g>
+    </g>
+    <g id="ytick_2">
+     <g id="line2d_12">
+      <g>
+       <use xlink:href="#m39379d007d" x="132.870313" y="58.461266" style="fill: #374151; stroke: #374151; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_8">
+      <text style="font-size: 10px; font-family: 'Segoe UI', 'DejaVu Sans'; text-anchor: end; fill: #374151" x="125.870313" y="62.162828" transform="rotate(-0 125.870313 62.162828)">2. Permissão no navegador</text>
+     </g>
+    </g>
+    <g id="ytick_3">
+     <g id="line2d_13">
+      <g>
+       <use xlink:href="#m39379d007d" x="132.870313" y="90.36" style="fill: #374151; stroke: #374151; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_9">
+      <text style="font-size: 10px; font-family: 'Segoe UI', 'DejaVu Sans'; text-anchor: end; fill: #374151" x="125.870313" y="94.000137" transform="rotate(-0 125.870313 94.000137)">3. IDOR</text>
+     </g>
+    </g>
+    <g id="ytick_4">
+     <g id="line2d_14">
+      <g>
+       <use xlink:href="#m39379d007d" x="132.870313" y="122.258734" style="fill: #374151; stroke: #374151; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_10">
+      <text style="font-size: 10px; font-family: 'Segoe UI', 'DejaVu Sans'; text-anchor: end; fill: #374151" x="125.870313" y="125.960297" transform="rotate(-0 125.870313 125.960297)">4. Chaves expostas</text>
+     </g>
+    </g>
+    <g id="ytick_5">
+     <g id="line2d_15">
+      <g>
+       <use xlink:href="#m39379d007d" x="132.870313" y="154.157468" style="fill: #374151; stroke: #374151; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_11">
+      <text style="font-size: 10px; font-family: 'Segoe UI', 'DejaVu Sans'; text-anchor: end; fill: #374151" x="125.870313" y="157.797605" transform="rotate(-0 125.870313 157.797605)">5. XSS</text>
+     </g>
+    </g>
+   </g>
+   <g id="patch_3">
+    <path d="M 132.870313 14.76 
+L 132.870313 14.76 
+L 132.870313 26.243544 
+L 132.870313 26.243544 
+z
+" clip-path="url(#pcfb6b8e8a5)" style="fill: #d97706; stroke: #ffffff; stroke-width: 1.2; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_4">
+    <path d="M 132.870313 46.658734 
+L 132.870313 46.658734 
+L 132.870313 58.142278 
+L 132.870313 58.142278 
+z
+" clip-path="url(#pcfb6b8e8a5)" style="fill: #d97706; stroke: #ffffff; stroke-width: 1.2; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_5">
+    <path d="M 132.870313 78.557468 
+L 132.870313 78.557468 
+L 132.870313 90.041013 
+L 132.870313 90.041013 
+z
+" clip-path="url(#pcfb6b8e8a5)" style="fill: #d97706; stroke: #ffffff; stroke-width: 1.2; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_6">
+    <path d="M 132.870313 110.456203 
+L 189.832813 110.456203 
+L 189.832813 121.939747 
+L 132.870313 121.939747 
+z
+" clip-path="url(#pcfb6b8e8a5)" style="fill: #d97706; stroke: #ffffff; stroke-width: 1.2; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_7">
+    <path d="M 132.870313 142.354937 
+L 132.870313 142.354937 
+L 132.870313 153.838481 
+L 132.870313 153.838481 
+z
+" clip-path="url(#pcfb6b8e8a5)" style="fill: #d97706; stroke: #ffffff; stroke-width: 1.2; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_8">
+    <path d="M 132.870313 14.76 
+L 189.832813 14.76 
+L 189.832813 26.243544 
+L 132.870313 26.243544 
+z
+" clip-path="url(#pcfb6b8e8a5)" style="fill: #2563eb; stroke: #ffffff; stroke-width: 1.2; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_9">
+    <path d="M 132.870313 46.658734 
+L 189.832813 46.658734 
+L 189.832813 58.142278 
+L 132.870313 58.142278 
+z
+" clip-path="url(#pcfb6b8e8a5)" style="fill: #2563eb; stroke: #ffffff; stroke-width: 1.2; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_10">
+    <path d="M 132.870313 78.557468 
+L 132.870313 78.557468 
+L 132.870313 90.041013 
+L 132.870313 90.041013 
+z
+" clip-path="url(#pcfb6b8e8a5)" style="fill: #2563eb; stroke: #ffffff; stroke-width: 1.2; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_11">
+    <path d="M 189.832813 110.456203 
+L 246.795313 110.456203 
+L 246.795313 121.939747 
+L 189.832813 121.939747 
+z
+" clip-path="url(#pcfb6b8e8a5)" style="fill: #2563eb; stroke: #ffffff; stroke-width: 1.2; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_12">
+    <path d="M 132.870313 142.354937 
+L 189.832813 142.354937 
+L 189.832813 153.838481 
+L 132.870313 153.838481 
+z
+" clip-path="url(#pcfb6b8e8a5)" style="fill: #2563eb; stroke: #ffffff; stroke-width: 1.2; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_13">
+    <path d="M 189.832813 14.76 
+L 189.832813 14.76 
+L 189.832813 26.243544 
+L 189.832813 26.243544 
+z
+" clip-path="url(#pcfb6b8e8a5)" style="fill: #6b7280; stroke: #ffffff; stroke-width: 1.2; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_14">
+    <path d="M 189.832813 46.658734 
+L 189.832813 46.658734 
+L 189.832813 58.142278 
+L 189.832813 58.142278 
+z
+" clip-path="url(#pcfb6b8e8a5)" style="fill: #6b7280; stroke: #ffffff; stroke-width: 1.2; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_15">
+    <path d="M 132.870313 78.557468 
+L 189.832813 78.557468 
+L 189.832813 90.041013 
+L 132.870313 90.041013 
+z
+" clip-path="url(#pcfb6b8e8a5)" style="fill: #6b7280; stroke: #ffffff; stroke-width: 1.2; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_16">
+    <path d="M 246.795313 110.456203 
+L 246.795313 110.456203 
+L 246.795313 121.939747 
+L 246.795313 121.939747 
+z
+" clip-path="url(#pcfb6b8e8a5)" style="fill: #6b7280; stroke: #ffffff; stroke-width: 1.2; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_17">
+    <path d="M 189.832813 142.354937 
+L 246.795313 142.354937 
+L 246.795313 153.838481 
+L 189.832813 153.838481 
+z
+" clip-path="url(#pcfb6b8e8a5)" style="fill: #6b7280; stroke: #ffffff; stroke-width: 1.2; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_18">
+    <path d="M 132.870313 26.881519 
+L 246.795313 26.881519 
+L 246.795313 38.365063 
+L 132.870313 38.365063 
+z
+" clip-path="url(#pcfb6b8e8a5)" style="fill: #059669; stroke: #ffffff; stroke-width: 1.2; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_19">
+    <path d="M 132.870313 58.780253 
+L 246.795313 58.780253 
+L 246.795313 70.263797 
+L 132.870313 70.263797 
+z
+" clip-path="url(#pcfb6b8e8a5)" style="fill: #059669; stroke: #ffffff; stroke-width: 1.2; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_20">
+    <path d="M 132.870313 90.678987 
+L 246.795313 90.678987 
+L 246.795313 102.162532 
+L 132.870313 102.162532 
+z
+" clip-path="url(#pcfb6b8e8a5)" style="fill: #059669; stroke: #ffffff; stroke-width: 1.2; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_21">
+    <path d="M 132.870313 122.577722 
+L 360.720313 122.577722 
+L 360.720313 134.061266 
+L 132.870313 134.061266 
+z
+" clip-path="url(#pcfb6b8e8a5)" style="fill: #059669; stroke: #ffffff; stroke-width: 1.2; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_22">
+    <path d="M 132.870313 154.476456 
+L 303.757812 154.476456 
+L 303.757812 165.96 
+L 132.870313 165.96 
+z
+" clip-path="url(#pcfb6b8e8a5)" style="fill: #059669; stroke: #ffffff; stroke-width: 1.2; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_23">
+    <path d="M 132.870313 173.52 
+L 132.870313 7.2 
+" style="fill: none; stroke: #d1d5db; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_24">
+    <path d="M 132.870313 173.52 
+L 406.290313 173.52 
+" style="fill: none; stroke: #d1d5db; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="text_12">
+    <text style="font-size: 9px; font-family: 'Segoe UI', 'DejaVu Sans'; text-anchor: start; fill: #111827" x="193.250563" y="22.830874" transform="rotate(-0 193.250563 22.830874)">1</text>
+   </g>
+   <g id="text_13">
+    <text style="font-size: 9px; font-family: 'Segoe UI', 'DejaVu Sans'; text-anchor: start; fill: #111827" x="193.250563" y="54.729608" transform="rotate(-0 193.250563 54.729608)">1</text>
+   </g>
+   <g id="text_14">
+    <text style="font-size: 9px; font-family: 'Segoe UI', 'DejaVu Sans'; text-anchor: start; fill: #111827" x="193.250563" y="86.628342" transform="rotate(-0 193.250563 86.628342)">1</text>
+   </g>
+   <g id="text_15">
+    <text style="font-size: 9px; font-family: 'Segoe UI', 'DejaVu Sans'; text-anchor: start; fill: #111827" x="250.213063" y="118.527076" transform="rotate(-0 250.213063 118.527076)">2</text>
+   </g>
+   <g id="text_16">
+    <text style="font-size: 9px; font-family: 'Segoe UI', 'DejaVu Sans'; text-anchor: start; fill: #111827" x="250.213063" y="150.42581" transform="rotate(-0 250.213063 150.42581)">2</text>
+   </g>
+   <g id="text_17">
+    <text style="font-size: 9px; font-family: 'Segoe UI', 'DejaVu Sans'; text-anchor: start; fill: #059669" x="250.213063" y="34.952393" transform="rotate(-0 250.213063 34.952393)">2</text>
+   </g>
+   <g id="text_18">
+    <text style="font-size: 9px; font-family: 'Segoe UI', 'DejaVu Sans'; text-anchor: start; fill: #059669" x="250.213063" y="66.851127" transform="rotate(-0 250.213063 66.851127)">2</text>
+   </g>
+   <g id="text_19">
+    <text style="font-size: 9px; font-family: 'Segoe UI', 'DejaVu Sans'; text-anchor: start; fill: #059669" x="250.213063" y="98.749861" transform="rotate(-0 250.213063 98.749861)">2</text>
+   </g>
+   <g id="text_20">
+    <text style="font-size: 9px; font-family: 'Segoe UI', 'DejaVu Sans'; text-anchor: start; fill: #059669" x="364.138063" y="130.648595" transform="rotate(-0 364.138063 130.648595)">4</text>
+   </g>
+   <g id="text_21">
+    <text style="font-size: 9px; font-family: 'Segoe UI', 'DejaVu Sans'; text-anchor: start; fill: #059669" x="307.175563" y="162.547329" transform="rotate(-0 307.175563 162.547329)">3</text>
+   </g>
+   <g id="legend_1">
+    <g id="patch_25">
+     <path d="M 140.634641 221.677594 
+L 158.634641 221.677594 
+L 158.634641 215.377594 
+L 140.634641 215.377594 
+z
+" style="fill: #d97706; stroke: #ffffff; stroke-width: 1.2; stroke-linejoin: miter"/>
+    </g>
+    <g id="text_22">
+     <text style="font-size: 9px; font-family: 'Segoe UI', 'DejaVu Sans'; text-anchor: start" x="165.834641" y="221.677594" transform="rotate(-0 165.834641 221.677594)">Achado média</text>
+    </g>
+    <g id="patch_26">
+     <path d="M 140.634641 234.734449 
+L 158.634641 234.734449 
+L 158.634641 228.434449 
+L 140.634641 228.434449 
+z
+" style="fill: #2563eb; stroke: #ffffff; stroke-width: 1.2; stroke-linejoin: miter"/>
+    </g>
+    <g id="text_23">
+     <text style="font-size: 9px; font-family: 'Segoe UI', 'DejaVu Sans'; text-anchor: start" x="165.834641" y="234.734449" transform="rotate(-0 165.834641 234.734449)">Achado baixa</text>
+    </g>
+    <g id="patch_27">
+     <path d="M 241.025422 221.677594 
+L 259.025422 221.677594 
+L 259.025422 215.377594 
+L 241.025422 215.377594 
+z
+" style="fill: #6b7280; stroke: #ffffff; stroke-width: 1.2; stroke-linejoin: miter"/>
+    </g>
+    <g id="text_24">
+     <text style="font-size: 9px; font-family: 'Segoe UI', 'DejaVu Sans'; text-anchor: start" x="266.225422" y="221.677594" transform="rotate(-0 266.225422 221.677594)">Achado informativa</text>
+    </g>
+    <g id="patch_28">
+     <path d="M 241.025422 234.830074 
+L 259.025422 234.830074 
+L 259.025422 228.530074 
+L 241.025422 228.530074 
+z
+" style="fill: #059669; stroke: #ffffff; stroke-width: 1.2; stroke-linejoin: miter"/>
+    </g>
+    <g id="text_25">
+     <text style="font-size: 9px; font-family: 'Segoe UI', 'DejaVu Sans'; text-anchor: start" x="266.225422" y="234.830074" transform="rotate(-0 266.225422 234.830074)">Ponto forte</text>
+    </g>
+   </g>
+  </g>
+ </g>
+ <defs>
+  <clipPath id="pcfb6b8e8a5">
+   <rect x="132.870313" y="7.2" width="273.42" height="166.32"/>
+  </clipPath>
+ </defs>
+</svg>
+</div></div><table class='grid'><tr><th>Categoria</th><th>Aplicabilidade nesta stack</th><th>Achados</th></tr><tr><td><b>1. Banco sem tranca (isolamento de dono)</b></td><td>Parcial: único dado de dono é a lista anônima (filtro por list_id)</td><td><span class="chip" style="background:#2563EB">baixa</span> <span class='small'>A3</span></td></tr><tr><td><b>2. Permissão definida no navegador</b></td><td>Não se aplica na forma clássica: não há papéis; avaliado o endpoint operacional</td><td><span class="chip" style="background:#2563EB">baixa</span> <span class='small'>A4</span></td></tr><tr><td><b>3. IDOR</b></td><td>Aplica-se às rotas da lista; catálogo é público por desenho</td><td><span class="chip" style="background:#6B7280">informativa</span> <span class='small'>A7</span></td></tr><tr><td><b>4. Chaves expostas (hardcode)</b></td><td>Aplica-se: compose, CI, .env.example, histórico e bundle</td><td><span class="chip" style="background:#D97706">média</span> <span class='small'>A1</span> <span class="chip" style="background:#2563EB">baixa</span> <span class='small'>A2</span></td></tr><tr><td><b>5. Inputs sem tratamento (XSS)</b></td><td>Aplica-se: frontend React e respostas do backend</td><td><span class="chip" style="background:#2563EB">baixa</span> <span class='small'>A5</span> <span class="chip" style="background:#6B7280">informativa</span> <span class='small'>A6</span></td></tr></table><div class='callout small'><b>Condição de explorabilidade mais importante:</b> A1 depende de alguém alcançar a porta do banco. Com a configuração atual (porta só em 127.0.0.1) isso exige acesso ao host ou à rede Docker. Entre os commits 539d90c e 5498fcb, e no projeto-base, a porta ficava aberta em todas as interfaces com essa senha.</div></section><section class='section'><h2>Pontos fortes e pontos fracos</h2><h3 style='color:#B91C1C;margin-top:0'>Pontos fracos (riscos centrais)</h3><div class='cards'><div class='card' style='border-left-color:#D97706'><span class="chip" style="background:#D97706">média</span><h4 style='margin-top:4px'>Segredo padrão vira segredo real</h4><p>O compose “de produção” cai para a senha pública steamtwo quando POSTGRES_PASSWORD falta, e não há validação no startup que impeça isso (A1, A2).</p></div><div class='card' style='border-left-color:#2563EB'><span class="chip" style="background:#2563EB">baixa</span><h4 style='margin-top:4px'>Diagnóstico público demais</h4><p>/api/status, sem controle de acesso, devolve mensagens cruas de exceção dos jobs e o total de itens de todas as listas (A3, A4).</p></div><div class='card' style='border-left-color:#2563EB'><span class="chip" style="background:#2563EB">baixa</span><h4 style='margin-top:4px'>Sem segunda barreira no navegador</h4><p>Sem CSP nem anti-framing: uma falha futura de XSS teria impacto pleno (A5).</p></div><div class='card' style='border-left-color:#6B7280'><span class="chip" style="background:#6B7280">informativa</span><h4 style='margin-top:4px'>Garantias implícitas</h4><p>Links de loja e posse da lista dependem de convenções (todo produtor gera https; o UUID nunca vaza), sem validação central (A6, A7).</p></div></div><h3 style='color:#059669'>Pontos fortes (verificados, com evidência)</h3><div class='cards'><div class='card' style='border-left-color:#059669'><span class='tag'>1. Banco sem tranca</span><h4>Toda query da lista pessoal filtra pelo dono</h4><p>server/db/catalog-read-repository.js:218 (list), :222 (count), :235-243 (add, com pg_advisory_xact_lock por lista), :249 (remove, DELETE … WHERE w.list_id = $1 AND g.slug = $2). Modo demo: server/services/catalog-service.js:123-142 indexa o Map por listId.</p></div><div class='card' style='border-left-color:#059669'><span class='tag'>1. Banco sem tranca</span><h4>Isolamento confirmado em execução</h4><p>Modos demo e banco: lista A com 2 jogos; lista B recebeu {&quot;items&quot;:[]} no GET e 404 {&quot;removed&quot;:false} no DELETE; a lista A ficou intacta.</p></div><div class='card' style='border-left-color:#059669'><span class='tag'>2. Permissão no navegador</span><h4>Não há operação privilegiada exposta por HTTP</h4><p>Jobs de sincronização, seed e migrações só rodam por CLI (server/jobs/cli.js, server/db/seed-cli.js, npx node-pg-migrate). O router (server/routes/index.js:46-108) só tem GETs públicos e PUT/DELETE da própria lista.</p></div><div class='card' style='border-left-color:#059669'><span class='tag'>2. Permissão no navegador</span><h4>Frontend sem gate de papel que dependa do servidor</h4><p>Nenhum isAdmin/role/canEdit em src/ (as ocorrências de “role” em App.jsx são atributos ARIA). Nada é escondido só no navegador.</p></div><div class='card' style='border-left-color:#059669'><span class='tag'>3. IDOR</span><h4>Os 11 handlers foram percorridos; parâmetros de ID validados</h4><p>slug: regex ^[a-z0-9-]+$ e máx. 120 (routes/index.js:12); X-List-Id: UUID (routes/index.js:13); jogos são catálogo público por desenho; itens da lista usam a chave composta (list_id, game_id) (migrations/002, PK).</p></div><div class='card' style='border-left-color:#059669'><span class='tag'>3. IDOR</span><h4>Sem CSRF nas escritas da lista</h4><p>PUT/DELETE exigem o cabeçalho customizado X-List-Id e não há middleware CORS: o preflight de outra origem recebe 404 sem Access-Control-Allow-Origin (testado), então um site de terceiros não consegue disparar a escrita.</p></div><div class='card' style='border-left-color:#059669'><span class='tag'>4. Chaves expostas</span><h4>Segredos lidos do ambiente e fora do controle de versão</h4><p>server/config.js:3-11 lê TWITCH_CLIENT_ID/SECRET e DATABASE_URL de process.env; .env está em .gitignore:3 e .dockerignore:3; TWITCH_* no compose têm default vazio (docker-compose.yml:13-14).</p></div><div class='card' style='border-left-color:#059669'><span class='tag'>4. Chaves expostas</span><h4>Histórico git sem segredos reais</h4><p>git log --all -p nos 12 commits: só a senha de desenvolvimento “steamtwo” (A1/A2) e valores fictícios de teste (tests/fixtures/igdb-token.json: &quot;fixture-token&quot;; clients.test.js: clientSecret &quot;secret&quot;).</p></div><div class='card' style='border-left-color:#059669'><span class='tag'>4. Chaves expostas</span><h4>Bundle do frontend sem chaves</h4><p>Build local do HEAD: dist/client/assets/index-*.js não contém URLs de banco, tokens nem client_secret; o código não usa import.meta.env/VITE_*. A única ocorrência de “TWITCH_CLIENT_ID” é o texto de ajuda da página /status.</p></div><div class='card' style='border-left-color:#059669'><span class='tag'>4. Chaves expostas</span><h4>Banco publicado só no loopback</h4><p>docker-compose.yml:25 &quot;127.0.0.1:${POSTGRES_PORT:-5432}:5432&quot; (desde 4222366) reduz a exposição de A1.</p></div><div class='card' style='border-left-color:#059669'><span class='tag'>5. XSS</span><h4>Nenhuma injeção de HTML no frontend</h4><p>Sem dangerouslySetInnerHTML, innerHTML, eval, new Function, markdown ou v-html em src/; todo texto (título, resumo, gêneros, erros de job) é renderizado como texto escapado pelo React. As ocorrências de innerHTML no bundle são internas do react-dom.</p></div><div class='card' style='border-left-color:#059669'><span class='tag'>5. XSS</span><h4>URLs de imagem e de loja com origem controlada</h4><p>coverUrl/heroUrl vêm de CDNs fixos ou do header_image da API da Steam (steam-store-client.js:5, 33); da IGDB só passa URL que casa com ^https?:// (normalizers.js:14-18); React 19.2 bloqueia javascript: em href/src (confirmado no bundle); links externos usam rel=&quot;noreferrer&quot; (App.jsx:433); slugs nas URLs passam por encodeURIComponent (App.jsx:415, 615; api.js:52-53).</p></div><div class='card' style='border-left-color:#059669'><span class='tag'>5. XSS</span><h4>Backend só responde JSON e esconde erros 5xx</h4><p>server/app.js:18-31 devolve “Erro interno do servidor” em 5xx e loga o detalhe no servidor; não há e-mails nem templates HTML; a descrição da Steam passa por stripHtml (steam-store-client.js:7-10) antes de ir ao banco.</p></div><div class='card' style='border-left-color:#059669'><span class='tag'>Transversal</span><h4>SQL sempre parametrizado</h4><p>Todas as queries usam $1, $2…; a busca escapa curingas do LIKE (catalog-read-repository.js:64-66). Teste local: q=&#x27; OR 1=1-- devolveu 0 itens; slug com aspas retornou 400.</p></div><div class='card' style='border-left-color:#059669'><span class='tag'>Transversal</span><h4>Validação de entrada com Zod em todas as rotas</h4><p>Enums para store/period/sort, limites de page/limit, texto livre com tamanho máximo e sem byte nulo (routes/index.js:8-16); corpo JSON limitado a 256 kB (app.js:7); x-powered-by desligado (app.js:6).</p></div><div class='card' style='border-left-color:#059669'><span class='tag'>Transversal</span><h4>Container sem root</h4><p>Dockerfile:14 instala só dependências de produção; Dockerfile:19 USER node.</p></div></div><h3>Fora das cinco categorias (não contados)</h3><ul class='small'><li>npm audit --omit=dev no HEAD: 16 avisos (1 crítico em proxy-addr, que só importa com trust proxy, não configurado; altos diretos em zod e vite). Não verificados individualmente e fora da contagem.</li><li>Sem rate limit; no modo demonstração as listas ficam num Map em memória sem limite de quantidade de listas (server/services/catalog-service.js:40, 134).</li><li>vite.config.mjs:12 sobe o servidor de desenvolvimento em 0.0.0.0 (só em npm run dev).</li></ul></section><section class='section'><h2>Achados detalhados por categoria</h2><div class='cat-title'><h3>1. Banco sem tranca (isolamento de dono)</h3><span class='muted small'>1 achado(s)</span></div><table class='grid'><tr><th>Severidade</th><th>Arquivo:linha</th><th>Descrição</th></tr><tr><td class='sev'><span class="chip" style="background:#2563EB">baixa</span><br><span class='small muted'>A3</span></td><td class='loc'><code>server/db/catalog-read-repository.js:200-204</code><br><code>server/routes/index.js:55-57</code><br><code>src/App.jsx:510</code></td><td>Agregação global de watchlist_items sem filtro de dono, exposta a qualquer visitante em GET /api/status</td></tr></table><div class='cat-title'><h3>2. Permissão definida no navegador</h3><span class='muted small'>1 achado(s)</span></div><p class='na'>Não há gate de papel no frontend nem papéis no backend; nenhuma ação privilegiada é exposta por HTTP. O único item é um endpoint operacional sem controle de acesso.</p><table class='grid'><tr><th>Severidade</th><th>Arquivo:linha</th><th>Descrição</th></tr><tr><td class='sev'><span class="chip" style="background:#2563EB">baixa</span><br><span class='small muted'>A4</span></td><td class='loc'><code>server/db/catalog-read-repository.js:205-206</code><br><code>server/jobs/run-job.js:2, 28</code><br><code>server/routes/index.js:55-57</code><br><code>src/App.jsx:538</code></td><td>Endpoint de diagnóstico /api/status é público e devolve mensagens de erro internas dos jobs</td></tr></table><div class='cat-title'><h3>3. IDOR</h3><span class='muted small'>1 achado(s)</span></div><table class='grid'><tr><th>Severidade</th><th>Arquivo:linha</th><th>Descrição</th></tr><tr><td class='sev'><span class="chip" style="background:#6B7280">informativa</span><br><span class='small muted'>A7</span></td><td class='loc'><code>server/routes/index.js:13</code><br><code>server/routes/index.js:43</code><br><code>src/api.js:34-48</code></td><td>A posse da lista é só o UUID enviado pelo cliente (bearer), sem segredo emitido pelo servidor</td></tr></table><div class='cat-title'><h3>4. Chaves expostas (hardcode)</h3><span class='muted small'>2 achado(s)</span></div><table class='grid'><tr><th>Severidade</th><th>Arquivo:linha</th><th>Descrição</th></tr><tr><td class='sev'><span class="chip" style="background:#D97706">média</span><br><span class='small muted'>A1</span></td><td class='loc'><code>docker-compose.yml:8</code><br><code>docker-compose.yml:10</code><br><code>docker-compose.yml:20-22</code><br><code>docker-compose.yml:78</code><br><code>server/config.js:6</code><br><code>server/index.js:16-17</code></td><td>Credenciais padrão do PostgreSQL (steamtwo/steamtwo) como fallback do compose “de produção”, sem validação de startup</td></tr><tr><td class='sev'><span class="chip" style="background:#2563EB">baixa</span><br><span class='small muted'>A2</span></td><td class='loc'><code>.env.example:4</code><br><code>.github/workflows/ci.yml:14-16</code><br><code>.github/workflows/ci.yml:23</code></td><td>A mesma credencial de desenvolvimento repetida em .env.example e no CI</td></tr></table><div class='cat-title'><h3>5. Inputs sem tratamento (XSS)</h3><span class='muted small'>2 achado(s)</span></div><table class='grid'><tr><th>Severidade</th><th>Arquivo:linha</th><th>Descrição</th></tr><tr><td class='sev'><span class="chip" style="background:#2563EB">baixa</span><br><span class='small muted'>A5</span></td><td class='loc'><code>server/app.js:4-16</code></td><td>Sem cabeçalhos HTTP de defesa (Content-Security-Policy, frame-ancestors/X-Frame-Options, X-Content-Type-Options)</td></tr><tr><td class='sev'><span class="chip" style="background:#6B7280">informativa</span><br><span class='small muted'>A6</span></td><td class='loc'><code>src/format.js:25</code><br><code>src/App.jsx:433</code><br><code>server/db/job-repository.js:10</code></td><td>URLs de loja vindas do banco vão direto para href, sem allowlist de esquema/domínio</td></tr></table><h3>Cobertura de IDOR: todos os handlers da API</h3><table class='grid routes'><tr><th>Método</th><th>Rota</th><th>routes/index.js</th><th>Entrada de ID</th><th>Verificação</th><th>Resultado</th></tr><tr><td>GET</td><td><code>/api/health</code></td><td>:46</td><td>—</td><td>Sem objeto; só status do banco</td><td>OK</td></tr><tr><td>GET</td><td><code>/api/status</code></td><td>:55</td><td>—</td><td>Agregados globais e sync_runs, sem controle de acesso</td><td>A3, A4</td></tr><tr><td>GET</td><td><code>/api/dashboard</code></td><td>:59</td><td>store (enum)</td><td>Catálogo público</td><td>OK</td></tr><tr><td>GET</td><td><code>/api/rankings</code></td><td>:64</td><td>period/store (enum), page/limit</td><td>Catálogo público</td><td>OK</td></tr><tr><td>GET</td><td><code>/api/games</code></td><td>:69</td><td>q, genre, store, sort</td><td>Catálogo público; SQL parametrizado</td><td>OK</td></tr><tr><td>GET</td><td><code>/api/games/:slug</code></td><td>:81</td><td>slug (regex)</td><td>Catálogo público por desenho</td><td>OK</td></tr><tr><td>GET</td><td><code>/api/genres</code></td><td>:87</td><td>—</td><td>Catálogo público</td><td>OK</td></tr><tr><td>GET</td><td><code>/api/list</code></td><td>:92</td><td>X-List-Id (UUID)</td><td>WHERE w.list_id = $1</td><td>OK (A7 informativo)</td></tr><tr><td>PUT</td><td><code>/api/list/:slug</code></td><td>:96</td><td>X-List-Id + slug</td><td>Insere com o list_id do chamador</td><td>OK (A7 informativo)</td></tr><tr><td>DELETE</td><td><code>/api/list/:slug</code></td><td>:101</td><td>X-List-Id + slug</td><td>WHERE list_id = $1 AND slug = $2</td><td>OK (A7 informativo)</td></tr><tr><td>GET</td><td><code>/api/methodology</code></td><td>:106</td><td>—</td><td>Conteúdo estático</td><td>OK</td></tr></table></section><section class='section'><h2>Evidência de cada achado</h2><article class='finding'><header><span class="chip" style="background:#D97706">média</span><b>A1 · Credenciais padrão do PostgreSQL (steamtwo/steamtwo) como fallback do compose “de produção”, sem validação de startup</b></header><div class='body'><div class='snippet-label'>docker-compose.yml:8</div><pre class='snippet'>NODE_ENV: production</pre><div class='snippet-label'>docker-compose.yml:10</div><pre class='snippet'>DATABASE_URL: postgres://${POSTGRES_USER:-steamtwo}:${POSTGRES_PASSWORD:-steamtwo}@postgres:5432/${POSTGRES_DB:-steamtwo}</pre><div class='snippet-label'>docker-compose.yml:20-22</div><pre class='snippet'>POSTGRES_DB: ${POSTGRES_DB:-steamtwo}
+POSTGRES_USER: ${POSTGRES_USER:-steamtwo}
+POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-steamtwo}</pre><div class='snippet-label'>docker-compose.yml:78</div><pre class='snippet'>TEST_DATABASE_URL: postgres://${POSTGRES_USER:-steamtwo}:${POSTGRES_PASSWORD:-steamtwo}@postgres:5432/steamtwo_test</pre><div class='snippet-label'>server/config.js:6</div><pre class='snippet'>databaseUrl: process.env.DATABASE_URL ?? &quot;&quot;,</pre><div class='snippet-label'>server/index.js:16-17</div><pre class='snippet'>if (config.databaseUrl) {
+  pool = createPool(config.databaseUrl);</pre><dl><dt>Categoria</dt><dd>4. Chaves expostas (hardcode)</dd><dt>Por que é explorável</dt><dd>Se POSTGRES_PASSWORD não for definida, o compose sobe o banco e os serviços api/sync/migrate (com NODE_ENV=production) usando a senha pública “steamtwo”, que está no repositório. Nenhum ponto do código rejeita essa credencial: config.js só lê a variável e index.js conecta com o que vier. Quem alcançar a porta do banco ou a rede do compose entra como dono do banco (leitura e escrita de todas as tabelas, inclusive watchlist_items).</dd><dt>Condição</dt><dd>Hoje a porta 5432 é publicada só em 127.0.0.1 (docker-compose.yml:25), então a exploração exige acesso ao host ou a outro container da mesma rede Docker. Vira acesso remoto direto se o compose for usado num servidor com a porta aberta ou se alguém remover o prefixo 127.0.0.1.</dd><dt>Impacto</dt><dd>Comprometimento total do banco (confidencialidade e integridade) por quem alcançar a porta.</dd><dt>Origem no histórico</dt><dd>Já existia no projeto-base: fc96a53 tinha POSTGRES_PASSWORD: steamtwo fixo e a porta &quot;5432:5432&quot; em todas as interfaces. 539d90c trocou por fallback ${POSTGRES_PASSWORD:-steamtwo} e adicionou NODE_ENV: production; de 539d90c a 5498fcb a porta seguiu publicada em todas as interfaces; 4222366 restringiu a 127.0.0.1.</dd></dl></div></article><article class='finding'><header><span class="chip" style="background:#2563EB">baixa</span><b>A2 · A mesma credencial de desenvolvimento repetida em .env.example e no CI</b></header><div class='body'><div class='snippet-label'>.env.example:4</div><pre class='snippet'>DATABASE_URL=postgres://steamtwo:steamtwo@localhost:5432/steamtwo</pre><div class='snippet-label'>.github/workflows/ci.yml:14-16</div><pre class='snippet'>POSTGRES_USER: steamtwo
+POSTGRES_PASSWORD: steamtwo
+POSTGRES_DB: steamtwo_test</pre><div class='snippet-label'>.github/workflows/ci.yml:23</div><pre class='snippet'>TEST_DATABASE_URL: postgres://steamtwo:steamtwo@localhost:5432/steamtwo_test</pre><dl><dt>Categoria</dt><dd>4. Chaves expostas (hardcode)</dd><dt>Por que é explorável</dt><dd>Quem copia .env.example para .env (fluxo documentado) herda a senha pública; junto com A1, a credencial conhecida se espalha para todo ambiente criado a partir do exemplo. No CI o banco é um service container efêmero, sem dado real, então ali o risco é só de mau exemplo.</dd><dt>Condição</dt><dd>Explorável apenas se o .env copiado for usado num banco alcançável por terceiros.</dd><dt>Impacto</dt><dd>Propagação de credencial conhecida para ambientes locais e de homologação.</dd><dt>Origem no histórico</dt><dd>.env.example: já existia no projeto-base (fc96a53, linha 3). CI: introduzido em 3ab80e7.</dd></dl></div></article><article class='finding'><header><span class="chip" style="background:#2563EB">baixa</span><b>A3 · Agregação global de watchlist_items sem filtro de dono, exposta a qualquer visitante em GET /api/status</b></header><div class='body'><div class='snippet-label'>server/db/catalog-read-repository.js:200-204</div><pre class='snippet'>pool.query(`SELECT (SELECT count(*) FROM games)::int AS games,
+  ...
+  (SELECT count(*) FROM watchlist_items)::int AS &quot;watchlistItems&quot;`),</pre><div class='snippet-label'>server/routes/index.js:55-57</div><pre class='snippet'>router.get(&quot;/status&quot;, handle(async (_request, response) =&gt; {
+  response.json(await catalogService.status());
+}));</pre><div class='snippet-label'>src/App.jsx:510</div><pre class='snippet'>watchlistItems: &quot;Itens em listas&quot;</pre><dl><dt>Categoria</dt><dd>1. Banco sem tranca (isolamento de dono)</dd><dt>Por que é explorável</dt><dd>É a única consulta sobre watchlist_items que não filtra por list_id: soma os itens de todas as listas anônimas e devolve o total sem autenticação. Verificado localmente: com itens só na lista A, um cliente sem cabeçalho recebeu &quot;watchlistItems&quot;: 2. Não vaza o conteúdo de nenhuma lista, só o volume agregado de uso de todos os usuários.</dd><dt>Condição</dt><dd>Sempre (endpoint público, modo banco).</dd><dt>Impacto</dt><dd>Vazamento de métrica agregada de uso; permite acompanhar a atividade de todos os usuários ao longo do tempo.</dd><dt>Origem no histórico</dt><dd>Introduzido depois do projeto-base (888c522, junto com a lista pessoal e /api/status).</dd></dl></div></article><article class='finding'><header><span class="chip" style="background:#2563EB">baixa</span><b>A4 · Endpoint de diagnóstico /api/status é público e devolve mensagens de erro internas dos jobs</b></header><div class='body'><div class='snippet-label'>server/db/catalog-read-repository.js:205-206</div><pre class='snippet'>pool.query(`SELECT DISTINCT ON (job) job, state, started_at AS &quot;startedAt&quot;, finished_at AS &quot;finishedAt&quot;,
+  details, error_message AS error FROM sync_runs ORDER BY job, started_at DESC`),</pre><div class='snippet-label'>server/jobs/run-job.js:2, 28</div><pre class='snippet'>return error instanceof Error ? error.message : String(error);
+...
+error: serializeError(error),</pre><div class='snippet-label'>server/routes/index.js:55-57</div><pre class='snippet'>router.get(&quot;/status&quot;, handle(async (_request, response) =&gt; { ... }));</pre><div class='snippet-label'>src/App.jsx:538</div><pre class='snippet'>&lt;span role=&quot;cell&quot;&gt;{run.error ?? formatNumber(run.details?.records)}&lt;/span&gt;</pre><dl><dt>Categoria</dt><dd>2. Permissão definida no navegador</dd><dt>Por que é explorável</dt><dd>O handler central de erros (server/app.js:18-31) esconde detalhes de 5xx, mas /api/status contorna isso: a mensagem crua de qualquer exceção de job (PostgreSQL, HTTP das fontes externas) é gravada em sync_runs.error_message e devolvida a qualquer visitante, sem verificação de privilégio. Teste local com dado fictício: um run falho com &#x27;duplicate key value violates unique constraint &quot;ranking_snapshots_source_captured_at_key&quot;&#x27; apareceu na resposta anônima. A interface também mostra a página /status para todos (não há gate no frontend nem no backend).</dd><dt>Condição</dt><dd>Sempre que algum job falhar (modo banco). O conteúdo vazado depende da exceção.</dd><dt>Impacto</dt><dd>Divulgação de nomes de tabelas e constraints, estado operacional e falhas de integração; ajuda no reconhecimento para outros ataques.</dd><dt>Origem no histórico</dt><dd>Introduzido depois do projeto-base (888c522). O projeto-base não tinha /api/status.</dd></dl></div></article><article class='finding'><header><span class="chip" style="background:#2563EB">baixa</span><b>A5 · Sem cabeçalhos HTTP de defesa (Content-Security-Policy, frame-ancestors/X-Frame-Options, X-Content-Type-Options)</b></header><div class='body'><div class='snippet-label'>server/app.js:4-16</div><pre class='snippet'>const app = express();
+app.disable(&quot;x-powered-by&quot;);
+app.use(express.json({ limit: &quot;256kb&quot; }));
+...
+app.use(express.static(staticDir));</pre><dl><dt>Categoria</dt><dd>5. Inputs sem tratamento (XSS)</dd><dt>Por que é explorável</dt><dd>Nenhum middleware define CSP ou anti-framing; confirmado com curl -I na API local (GET / e /api/*). Hoje não há XSS explorável (seção de pontos fortes), mas qualquer XSS futuro roda sem segunda barreira e pode ler o X-List-Id do localStorage. Sem frame-ancestors, a página pode ser embutida em iframe de terceiros (clickjacking sobre “Adicionar à lista”, de impacto baixo).</dd><dt>Condição</dt><dd>Exige uma segunda falha (XSS) ou interação da vítima com a página do atacante para clickjacking.</dd><dt>Impacto</dt><dd>Defesa em profundidade ausente; amplia o impacto de falhas futuras.</dd><dt>Origem no histórico</dt><dd>Já existia no projeto-base (server/app.js de fc96a53 é igual nesse ponto).</dd></dl></div></article><article class='finding'><header><span class="chip" style="background:#6B7280">informativa</span><b>A6 · URLs de loja vindas do banco vão direto para href, sem allowlist de esquema/domínio</b></header><div class='body'><div class='snippet-label'>src/format.js:25</div><pre class='snippet'>if (listing?.url) return listing.url;</pre><div class='snippet-label'>src/App.jsx:433</div><pre class='snippet'>&lt;a className=&quot;primary-button&quot; key={store} href={storeUrl(game, store)} target=&quot;_blank&quot; rel=&quot;noreferrer&quot;&gt;</pre><div class='snippet-label'>server/db/job-repository.js:10</div><pre class='snippet'>if (suppliedUrl) return suppliedUrl;</pre><dl><dt>Categoria</dt><dd>5. Inputs sem tratamento (XSS)</dd><dt>Por que é explorável</dt><dd>O valor de store_listings.url é repassado ao href sem validação. Não é explorável hoje: todos os produtores montam https:// fixo (steam-store-client.js:36, normalizers.js:62, job-repository.js:11-16 e o seed), e o React 19.2 bloqueia URLs javascript: (o bundle gerado contém a proteção “React has blocked a javascript: URL”). Fica registrado porque a garantia depende de cada fonte futura e não existe uma validação central.</dd><dt>Condição</dt><dd>Só se uma fonte nova, um scraping alterado ou uma escrita manual gravar URL com esquema perigoso, ou apontar para domínio de phishing.</dd><dt>Impacto</dt><dd>Hoje nenhum; no futuro, link de loja apontando para domínio arbitrário.</dd><dt>Origem no histórico</dt><dd>Repasse no servidor (job-repository.js) já existia no projeto-base; uso de listing.url no frontend introduzido em d4b1d47.</dd></dl></div></article><article class='finding'><header><span class="chip" style="background:#6B7280">informativa</span><b>A7 · A posse da lista é só o UUID enviado pelo cliente (bearer), sem segredo emitido pelo servidor</b></header><div class='body'><div class='snippet-label'>server/routes/index.js:13</div><pre class='snippet'>const listIdSchema = z.string().uuid(&quot;Cabeçalho X-List-Id deve ser um UUID&quot;);</pre><div class='snippet-label'>server/routes/index.js:43</div><pre class='snippet'>const listId = (request) =&gt; z.object({ &quot;X-List-Id&quot;: listIdSchema }).parse({ &quot;X-List-Id&quot;: request.get(&quot;x-list-id&quot;) })[&quot;X-List-Id&quot;];</pre><div class='snippet-label'>src/api.js:34-48</div><pre class='snippet'>let id = window.localStorage.getItem(LIST_KEY);
+... id = crypto.randomUUID(); ...
+const listHeaders = () =&gt; ({ &quot;X-List-Id&quot;: getListId() });</pre><dl><dt>Categoria</dt><dd>3. IDOR</dd><dt>Por que é explorável</dt><dd>As rotas de lista estão corretas contra IDOR clássico: toda query filtra por list_id, e o teste local confirmou que a lista B não lê nem apaga itens da lista A (GET vazio, DELETE 404). Mas o identificador é escolhido pelo cliente, não expira e não pode ser revogado: quem souber o UUID lê e altera a lista. O servidor aceita qualquer UUID válido, inclusive o nulo 00000000-0000-0000-0000-000000000000 (testado: 200), que vira uma lista compartilhada por todos que o usarem.</dd><dt>Condição</dt><dd>Exige que o UUID da vítima vaze (logs de proxy que gravam cabeçalhos, XSS, máquina compartilhada). Adivinhar é inviável: o frontend gera 122 bits aleatórios com crypto.randomUUID.</dd><dt>Impacto</dt><dd>Baixo: dados da lista são preferências públicas de jogos, sem PII.</dd><dt>Origem no histórico</dt><dd>Introduzido depois do projeto-base (888c522 API, d4b1d47 frontend).</dd></dl></div></article></section><section class='section'><h2>Recomendações priorizadas</h2><div class='rec'><div class='p'>P1</div><div><h4>Eliminar a credencial padrão do banco <span class='small muted'>(A1, A2)</span> <span class="chip" style="background:#D97706">média</span></h4><p>Trocar <code>${POSTGRES_PASSWORD:-steamtwo}</code> por <code>${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}</code> (o mesmo para usuário/banco, se quiser) e validar no startup (server/config.js) que, com NODE_ENV=production, DATABASE_URL existe e não usa a senha “steamtwo”. No .env.example, deixar a senha como placeholder. Manter a porta do banco em 127.0.0.1.</p></div></div><div class='rec'><div class='p'>P2</div><div><h4>Fechar o vazamento do /api/status <span class='small muted'>(A4, A3)</span> <span class="chip" style="background:#2563EB">baixa</span></h4><p>Gravar em sync_runs uma mensagem genérica/código de erro (o detalhe vai para o log), ou devolver <code>error</code> apenas a operadores autenticados (token de operação via variável de ambiente). Remover o total global de watchlist_items da resposta pública ou movê-lo para o endpoint restrito.</p></div></div><div class='rec'><div class='p'>P2</div><div><h4>Adicionar cabeçalhos de segurança <span class='small muted'>(A5)</span> <span class="chip" style="background:#2563EB">baixa</span></h4><p>Usar helmet (ou cabeçalhos manuais) com CSP <code>default-src 'self'; img-src 'self' https://cdn.cloudflare.steamstatic.com https://shared.cloudflare.steamstatic.com https://images.igdb.com https://images.unsplash.com; frame-ancestors 'none'</code>, além de X-Content-Type-Options: nosniff e Referrer-Policy.</p></div></div><div class='rec'><div class='p'>P3</div><div><h4>Validar URLs de loja num ponto central <span class='small muted'>(A6)</span> <span class="chip" style="background:#6B7280">informativa</span></h4><p>Aceitar só https:// e os domínios store.steampowered.com e store.epicgames.com em storeUrl (job-repository.js) e de novo em src/format.js antes de renderizar; o resto cai para a URL de busca.</p></div></div><div class='rec'><div class='p'>P3</div><div><h4>Endurecer a identidade anônima da lista <span class='small muted'>(A7)</span> <span class="chip" style="background:#6B7280">informativa</span></h4><p>Rejeitar UUIDs que não sejam v4 (inclusive o nulo), avaliar um identificador emitido pelo servidor em cookie HttpOnly/SameSite, e aplicar rate limit nas rotas de escrita.</p></div></div><div class='rec'><div class='p'>P3</div><div><h4>Fora das cinco categorias: dependências </h4><p><code>npm audit --omit=dev</code> no HEAD aponta 16 avisos (1 crítico, 11 altos, 4 moderados), incluindo diretos em zod, vite e node-pg-migrate. Não foram verificados um a um e não entram na contagem de achados; rodar <code>npm audit fix</code> e reexecutar os testes.</p></div></div></section><section class='section'><h2>Verificação independente e comunicação ao proprietário</h2><h3>Confirmação dos achados</h3><p>Depois da execução do prompt, os achados principais foram reproduzidos de forma independente na instância local (<code>docker compose up</code>, dados fictícios), em 24/11/2026:</p><table class='kv'><tr><th>A1</th><td><code>docker compose config</code> sem <code>POSTGRES_PASSWORD</code> resolve <code>DATABASE_URL: postgres://steamtwo:steamtwo@postgres:5432/steamtwo</code> — a API sobe com a senha pública.</td></tr><tr><th>A3</th><td><code>GET /api/status</code> sem cabeçalho algum retorna <code>"watchlistItems": 2</code> — total de itens de <b>todas</b> as listas, de qualquer visitante.</td></tr><tr><th>A4</th><td>Com um <code>sync_run</code> fictício com falha, <code>GET /api/status</code> devolveu a mensagem crua do PostgreSQL (<code>duplicate key value violates unique constraint …</code>) a um visitante anônimo. O registro fictício foi removido em seguida.</td></tr><tr><th>A5</th><td>Cabeçalhos da resposta de <code>GET /</code>: <code>Content-Security-Policy</code>, <code>X-Frame-Options</code> e <code>X-Content-Type-Options</code> ausentes.</td></tr></table><h3>Registro da comunicação</h3><table class='kv'><tr><th>Proprietário</th><td>João Hideki Takayasu (autor e mantenedor do SaaS auditado)</td></tr><tr><th>Canal</th><td>Issues no repositório do projeto, com labels <code>security</code> e de severidade</td></tr><tr><th>Data</th><td>25/11/2026 (horário UTC 01:55)</td></tr><tr><th>Evidência</th><td><a href='https://github.com/joao-hideki/steamtwo-melhorias/issues/1'>#1</a> credencial padrão do PostgreSQL (média) · <a href='https://github.com/joao-hideki/steamtwo-melhorias/issues/2'>#2</a> <code>/api/status</code> expõe erros internos e total global (baixa) · <a href='https://github.com/joao-hideki/steamtwo-melhorias/issues/3'>#3</a> cabeçalhos de segurança e URLs de loja (baixa) · <a href='https://github.com/joao-hideki/steamtwo-melhorias/issues/4'>#4</a> endurecer o <code>X-List-Id</code> (informativa)</td></tr><tr><th>Conteúdo</th><td>Cada issue explica o problema, a evidência (arquivo:linha), o impacto, a correção sugerida e critérios de aceite. Nenhum token, senha real ou dado pessoal foi incluído — a única credencial citada é o valor padrão público de desenvolvimento.</td></tr></table><p class='small'>Achados que já existiam no projeto-base (A1, A2, A5) foram registrados como tal; a comunicação foi feita ao proprietário do repositório auditado, que é o responsável pela versão em uso.</p></section><section class='section'><h2>ISSUES PARA O GITHUB</h2><p class='small'>Cada bloco abaixo é o texto completo de uma issue em Markdown, pronto para copiar e colar. Achados relacionados foram agrupados para não gerar issues repetidas. A7 (informativa) foi mantido como issue porque tem correção concreta.</p><div class='issue'><div class='issue-head'><span class="chip" style="background:#D97706">média</span><b>Issue 1</b><span class='small muted'>A1, A2</span></div><pre class='md'>--- ISSUE 1 ---
+# [Segurança] Credencial padrão do PostgreSQL (steamtwo) usada como fallback e sem validação no startup
+
+**Labels sugeridas:** security, severidade:média
+**Achados do relatório:** A1, A2
+
+## Descrição
+O `docker-compose.yml` usa `${POSTGRES_PASSWORD:-steamtwo}` (e o mesmo para usuário e banco). Se a variável não for definida, o banco e os serviços `api`, `sync` e `migrate` sobem com `NODE_ENV: production` e a senha pública `steamtwo`, que está no repositório. Nada no código rejeita essa credencial: `server/config.js` só lê `DATABASE_URL` e `server/index.js` conecta com o que vier. O `.env.example` e o CI repetem a mesma senha, o que espalha a credencial conhecida para qualquer `.env` copiado do exemplo.
+
+Hoje a porta do banco é publicada só em `127.0.0.1`, então a exploração exige acesso ao host ou à rede do compose. Basta usar o compose num servidor com a porta aberta (ou remover o prefixo `127.0.0.1`) para virar acesso remoto direto. Entre os commits 539d90c e 5498fcb a porta esteve publicada em todas as interfaces com essa senha; no projeto-base (fc96a53) a senha era fixa e a porta também ficava aberta.
+
+## Evidência
+- `docker-compose.yml:8` — `NODE_ENV: production`
+- `docker-compose.yml:10` — `DATABASE_URL: postgres://${POSTGRES_USER:-steamtwo}:${POSTGRES_PASSWORD:-steamtwo}@postgres:5432/${POSTGRES_DB:-steamtwo}`
+- `docker-compose.yml:20-22` — `POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-steamtwo}`
+- `docker-compose.yml:78` — `TEST_DATABASE_URL: postgres://${POSTGRES_USER:-steamtwo}:${POSTGRES_PASSWORD:-steamtwo}@...`
+- `server/config.js:6` — `databaseUrl: process.env.DATABASE_URL ?? &quot;&quot;,` (sem validação)
+- `.env.example:4` — `DATABASE_URL=postgres://steamtwo:steamtwo@localhost:5432/steamtwo`
+- `.github/workflows/ci.yml:15,23` — `POSTGRES_PASSWORD: steamtwo` (container efêmero de CI, só referência)
+
+## Impacto
+Quem alcançar a porta 5432 ou a rede do compose tem acesso total ao banco: lê e altera catálogo, rankings, `sync_runs` e todas as listas pessoais.
+
+## Sugestão de correção
+1. No compose, trocar os defaults por variáveis obrigatórias: `${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}` (idem em `DATABASE_URL` e `TEST_DATABASE_URL`).
+2. Em `server/config.js`, validar no startup: com `NODE_ENV=production`, exigir `DATABASE_URL` e abortar se a senha for `steamtwo` ou estiver vazia.
+3. No `.env.example`, usar um placeholder (`DATABASE_URL=postgres://steamtwo:&lt;troque-esta-senha&gt;@localhost:5432/steamtwo`) e documentar no README a geração de uma senha.
+4. Manter a publicação da porta do banco em `127.0.0.1`.
+
+## Critérios de aceite
+- [ ] `docker compose up` sem `POSTGRES_PASSWORD` definido falha com mensagem clara.
+- [ ] Nenhum `${...:-steamtwo}` restante em `docker-compose.yml` (`grep -n &#x27;:-steamtwo&#x27; docker-compose.yml` vazio).
+- [ ] A API com `NODE_ENV=production` e senha `steamtwo` encerra no startup com erro explícito (teste automatizado).
+- [ ] `.env.example` não contém senha utilizável.
+- [ ] README atualizado com o passo de definir a senha.
+--- FIM ISSUE 1 ---</pre></div><div class='issue'><div class='issue-head'><span class="chip" style="background:#2563EB">baixa</span><b>Issue 2</b><span class='small muted'>A4, A3</span></div><pre class='md'>--- ISSUE 2 ---
+# [Segurança] /api/status público expõe mensagens de erro internas e o total global das listas
+
+**Labels sugeridas:** security, severidade:baixa
+**Achados do relatório:** A4, A3
+
+## Descrição
+`GET /api/status` não tem nenhum controle de acesso e devolve:
+1. `sync_runs.error_message` de cada job, que é a mensagem crua da exceção (`error.message`) gravada por `server/jobs/run-job.js`. Erros do PostgreSQL e das fontes externas chegam assim a qualquer visitante, contornando o handler central que esconde detalhes de 5xx.
+2. `count(*) FROM watchlist_items` sem filtro de dono: o total de itens de todas as listas anônimas.
+
+Verificado localmente com dados fictícios: um run falho com `duplicate key value violates unique constraint &quot;ranking_snapshots_source_captured_at_key&quot;` apareceu na resposta anônima, e `watchlistItems` refletiu itens de outra lista.
+
+## Evidência
+- `server/routes/index.js:55-57` — `router.get(&quot;/status&quot;, ...)` sem verificação
+- `server/db/catalog-read-repository.js:205-206` — `details, error_message AS error FROM sync_runs`
+- `server/db/catalog-read-repository.js:204` — `(SELECT count(*) FROM watchlist_items)::int AS &quot;watchlistItems&quot;`
+- `server/jobs/run-job.js:2` — `return error instanceof Error ? error.message : String(error);`
+- `src/App.jsx:538` — `{run.error ?? formatNumber(run.details?.records)}` (exibido a todos)
+
+## Impacto
+Divulgação de nomes de tabelas/constraints, falhas de integração e métrica agregada de uso de todos os usuários. Ajuda no reconhecimento; não expõe o conteúdo de listas.
+
+## Sugestão de correção
+- Gravar em `sync_runs` um código/mensagem genérica (ex.: `falha na fonte steam`, `erro de banco`) e mandar o detalhe só para o log do processo.
+- Ou separar: `/api/status` público com frescor das fontes e contagens do catálogo; detalhes de jobs e `watchlistItems` em rota restrita (token de operação em variável de ambiente, comparação em tempo constante).
+- Ajustar a página `/status` da interface ao novo contrato.
+
+## Critérios de aceite
+- [ ] Resposta anônima de `/api/status` não contém texto de exceção (teste com run falho fictício).
+- [ ] Resposta anônima não contém `watchlistItems` (ou a rota restrita exige token e responde 401 sem ele).
+- [ ] O detalhe do erro continua disponível no log do serviço `sync`.
+- [ ] Testes de API cobrindo os dois casos.
+--- FIM ISSUE 2 ---</pre></div><div class='issue'><div class='issue-head'><span class="chip" style="background:#2563EB">baixa</span><b>Issue 3</b><span class='small muted'>A5, A6</span></div><pre class='md'>--- ISSUE 3 ---
+# [Segurança] Adicionar cabeçalhos HTTP de segurança (CSP, frame-ancestors, nosniff) e validar URLs de loja
+
+**Labels sugeridas:** security, severidade:baixa
+**Achados do relatório:** A5, A6
+
+## Descrição
+O Express não define Content-Security-Policy, proteção contra framing nem `X-Content-Type-Options` (confirmado com `curl -I` em `/` e `/api/*`). Hoje não há XSS explorável, mas qualquer falha futura rodaria sem segunda barreira e poderia ler o `X-List-Id` do `localStorage`; sem `frame-ancestors`, a interface pode ser embutida por terceiros (clickjacking).
+
+Junto disso, a URL de loja vinda do banco vai direto para o `href`, sem allowlist. Não é explorável hoje: todos os produtores montam `https://` fixo e o React 19.2 bloqueia `javascript:`. A garantia, porém, depende de cada fonte futura.
+
+## Evidência
+- `server/app.js:4-16` — `express()`, `express.json`, `express.static` sem middleware de cabeçalhos
+- `src/format.js:25` — `if (listing?.url) return listing.url;`
+- `src/App.jsx:433` — `&lt;a ... href={storeUrl(game, store)} target=&quot;_blank&quot; rel=&quot;noreferrer&quot;&gt;`
+- `server/db/job-repository.js:10` — `if (suppliedUrl) return suppliedUrl;`
+
+## Impacto
+Defesa em profundidade ausente; amplia o impacto de uma eventual falha de XSS ou de uma fonte de dados comprometida.
+
+## Sugestão de correção
+- Adicionar `helmet` (ou cabeçalhos manuais) com CSP compatível com as imagens usadas:
+  `default-src &#x27;self&#x27;; img-src &#x27;self&#x27; https://cdn.cloudflare.steamstatic.com https://shared.cloudflare.steamstatic.com https://images.igdb.com https://images.unsplash.com; style-src &#x27;self&#x27; &#x27;unsafe-inline&#x27;; frame-ancestors &#x27;none&#x27;; object-src &#x27;none&#x27;; base-uri &#x27;self&#x27;`
+- `X-Content-Type-Options: nosniff` e `Referrer-Policy: strict-origin-when-cross-origin`.
+- Validar URL de loja em `storeUrl` (servidor) e em `src/format.js`: só `https:` e hosts `store.steampowered.com` / `store.epicgames.com`; caso contrário, usar a URL de busca.
+
+## Critérios de aceite
+- [ ] `curl -I http://localhost:3001/` mostra `Content-Security-Policy` com `frame-ancestors &#x27;none&#x27;` e `X-Content-Type-Options: nosniff`.
+- [ ] A interface funciona sem violações de CSP no console (dashboard, catálogo, detalhe, lista, status).
+- [ ] Teste unitário: `storeUrl` com `javascript:alert(1)` ou `https://evil.example` devolve a URL de busca da loja.
+- [ ] Teste de API verificando a presença dos cabeçalhos.
+--- FIM ISSUE 3 ---</pre></div><div class='issue'><div class='issue-head'><span class="chip" style="background:#6B7280">informativa</span><b>Issue 4</b><span class='small muted'>A7</span></div><pre class='md'>--- ISSUE 4 ---
+# [Segurança] Endurecer o identificador anônimo da lista (X-List-Id)
+
+**Labels sugeridas:** security, severidade:informativa
+**Achados do relatório:** A7
+
+## Descrição
+A posse da lista pessoal é só o UUID que o navegador envia em `X-List-Id`. As rotas filtram corretamente por esse valor (sem IDOR clássico: a lista B não lê nem apaga itens da lista A, verificado localmente), mas o identificador é escolhido pelo cliente, não expira e não pode ser revogado. O servidor aceita qualquer UUID sintaticamente válido, inclusive o nulo `00000000-0000-0000-0000-000000000000`, que vira uma lista compartilhada. Também não há limite de criação de listas nem rate limit nas escritas.
+
+## Evidência
+- `server/routes/index.js:13` — `z.string().uuid(...)` aceita qualquer versão, inclusive o UUID nulo
+- `server/routes/index.js:43` — o `list_id` vem direto do cabeçalho
+- `src/api.js:34-48` — UUID gerado com `crypto.randomUUID()` e guardado no `localStorage`
+
+## Impacto
+Baixo: quem obtiver o UUID (log de proxy que grave cabeçalhos, máquina compartilhada, XSS futuro) lê e altera a lista, que só contém preferências públicas de jogos. Adivinhar um UUID v4 aleatório é inviável.
+
+## Sugestão de correção
+- Aceitar apenas UUID v4 (`z.uuid({ version: &quot;v4&quot; })` no Zod 4) e rejeitar o UUID nulo.
+- Avaliar emitir o identificador no servidor, em cookie `HttpOnly; Secure; SameSite=Lax`, em vez de deixá-lo no `localStorage`.
+- Aplicar rate limit em `PUT/DELETE /api/list/:slug`.
+
+## Critérios de aceite
+- [ ] `GET /api/list` com `X-List-Id: 00000000-0000-0000-0000-000000000000` responde 400.
+- [ ] UUIDs de versões diferentes de 4 são rejeitados (teste de API).
+- [ ] Escritas acima do limite configurado por IP/minuto recebem 429.
+--- FIM ISSUE 4 ---</pre></div></section></body></html>

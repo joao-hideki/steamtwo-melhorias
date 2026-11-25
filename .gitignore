@@ -5,3 +5,5 @@ dist/
 coverage/
 *.log
 
+# Ambiente Python do gerador do relatório de auditoria
+docs/security-audit/.venv/

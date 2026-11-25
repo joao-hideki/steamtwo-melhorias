@@ -1,0 +1,2 @@
+matplotlib==3.11.2
+pypdfium2==5.15.2
