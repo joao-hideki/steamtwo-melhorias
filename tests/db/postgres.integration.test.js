@@ -63,6 +63,13 @@ describe.skipIf(!testDatabaseUrl)("PostgreSQL — integração completa", () => 
       (SELECT array_agg(ge.name) FROM game_genres gg JOIN genres ge ON ge.id = gg.genre_id WHERE gg.game_id = g.id) AS genres
       FROM games g WHERE slug = 'portal-2'`);
     expect(game.rows[0]).toEqual({ pop: 12.5, genres: ["Quebra-cabeça"] });
+    // Restaura: os testes seguintes validam o "De sempre" sem IGDB (pico monitorado).
+    await pool.query("UPDATE games SET igdb_id = NULL, igdb_popularity = NULL WHERE slug = 'portal-2'");
+  });
+
+  it("seed não grava popularidade fictícia do catálogo de exemplo", async () => {
+    const { rows } = await pool.query("SELECT count(*)::int AS total FROM games WHERE igdb_popularity IS NOT NULL");
+    expect(rows[0].total).toBe(0);
   });
 
   it("coleta grava snapshots, vincula a Epic pelo título e registra o sync_run com sucesso", async () => {
@@ -113,8 +120,11 @@ describe.skipIf(!testDatabaseUrl)("PostgreSQL — integração completa", () => 
     expect(rows.find((row) => row.slug === "elden-ring").score).toBeCloseTo(75);
     // Cyberpunk: vendido nas duas; 4º de 4 na Steam (25) e 2º de 2 na Epic (50) → 37,5.
     expect(rows.find((row) => row.slug === "cyberpunk-2077").score).toBeCloseTo(37.5);
-    const allTime = await pool.query("SELECT count(*)::int AS total FROM game_rankings WHERE period = 'all-time'");
-    expect(allTime.rows[0].total).toBe(10);
+    // Sem IGDB, "De sempre" = maior índice que cada jogo já atingiu nas coletas (dado real).
+    const allTime = await pool.query(`SELECT g.slug, r.score::float AS score, r.source FROM game_rankings r
+      JOIN games g ON g.id = r.game_id WHERE r.period = 'all-time' ORDER BY r.rank`);
+    expect(allTime.rows.map((row) => row.slug)).toEqual(["counter-strike-2", "elden-ring", "cyberpunk-2077"]);
+    expect(allTime.rows[0]).toMatchObject({ score: 100, source: "steamtwo-peak" });
   });
 
   it("advisory lock real impede dois jobs iguais ao mesmo tempo", async () => {
@@ -190,6 +200,32 @@ describe.skipIf(!testDatabaseUrl)("PostgreSQL — integração completa", () => 
     await request(app).delete("/api/list/portal-2").set("X-List-Id", LIST_ID).expect(404);
     await request(app).put("/api/list/jogo-que-nao-existe").set("X-List-Id", LIST_ID).expect(404);
     await request(app).get("/api/list").set("X-List-Id", "nao-e-uuid").expect(400);
+  });
+
+  it("PUTs simultâneos na mesma lista nunca geram falso 'lista cheia' nem estouram o limite", async () => {
+    const raceList = "bbbbbbbb-cccc-4ddd-8eee-ffffffffffff";
+    // 10 rodadas de 8 requisições iguais em paralelo: exatamente um 201 por rodada, o resto 200.
+    for (let round = 0; round < 10; round += 1) {
+      await pool.query("DELETE FROM watchlist_items WHERE list_id = $1", [raceList]);
+      const statuses = await Promise.all(Array.from({ length: 8 }, () =>
+        request(app).put("/api/list/elden-ring").set("X-List-Id", raceList).then((res) => res.status)));
+      expect(statuses.filter((s) => s === 201)).toHaveLength(1);
+      expect(statuses.filter((s) => s === 200)).toHaveLength(7);
+    }
+    // Jogos diferentes em paralelo com limite 3: exatamente 3 entram.
+    await pool.query("DELETE FROM watchlist_items WHERE list_id = $1", [raceList]);
+    const repository = createCatalogReadRepository(pool);
+    const slugs = (await pool.query("SELECT slug FROM games ORDER BY slug LIMIT 8")).rows.map((row) => row.slug);
+    const outcomes = await Promise.all(slugs.map((slug) => repository.watchlist.add(raceList, slug, 3)));
+    expect(outcomes.filter((o) => o === "added")).toHaveLength(3);
+    expect(outcomes.filter((o) => o === "full")).toHaveLength(5);
+    const { rows } = await pool.query("SELECT count(*)::int AS total FROM watchlist_items WHERE list_id = $1", [raceList]);
+    expect(rows[0].total).toBe(3);
+  });
+
+  it("byte nulo na busca é rejeitado com 400 (não chega ao banco)", async () => {
+    await request(app).get("/api/games").query({ q: "a\u0000b" }).expect(400);
+    await request(app).get("/api/games").query({ genre: "\u0000" }).expect(400);
   });
 
   it("lista cheia responde 409, mas re-adicionar um item que já está nela não é erro", async () => {

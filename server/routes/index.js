@@ -11,6 +11,9 @@ const pageSchema = z.coerce.number().int().min(1).max(1000).default(1);
 const limitSchema = z.coerce.number().int().min(1).max(100).default(20);
 const slugSchema = z.string().max(120).regex(/^[a-z0-9-]+$/, "slug inválido");
 const listIdSchema = z.string().uuid("Cabeçalho X-List-Id deve ser um UUID");
+// Texto livre do usuário: o PostgreSQL rejeita o byte nulo (0x00) em UTF-8, então ele é
+// barrado na validação (400) em vez de virar erro 500 no banco.
+const textSchema = (max) => z.string().max(max).refine((text) => !text.includes("\u0000"), "caractere inválido (byte nulo)");
 
 const methodology = {
   name: "Índice SteamTwo",
@@ -65,8 +68,8 @@ export function createApiRouter({ catalogService = createCatalogService(), healt
 
   router.get("/games", handle(async (request, response) => {
     const query = z.object({
-      q: z.string().max(100).default(""),
-      genre: z.string().max(60).optional(),
+      q: textSchema(100).default(""),
+      genre: textSchema(60).optional(),
       store: storeSchema,
       sort: z.enum(["popularity", "name"]).default("popularity"),
       page: pageSchema,

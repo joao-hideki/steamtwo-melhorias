@@ -18,6 +18,8 @@ export function normalizeSteamAppDetails(appId, payload) {
   const entry = payload?.[String(appId)];
   if (!entry?.success || !entry.data?.name) return null;
   const { data } = entry;
+  // O top da Steam inclui softwares (ex.: utilitários de mira); o catálogo é só de jogos.
+  if (data.type && data.type !== "game") return null;
   const title = stripHtml(data.name);
   return {
     source: "steam",

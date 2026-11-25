@@ -21,7 +21,8 @@ export function seedCatalog(games = mockGames) {
     coverUrl: game.coverUrl,
     heroUrl: game.heroUrl,
     releaseDate: game.releaseDate,
-    popularity: game.historicalPopularity,
+    // Sem popularidade: o valor do catálogo de exemplo é fictício e não pode aparecer
+    // como dado real no banco ("De sempre" usa IGDB ou o pico monitorado).
     genres: game.genres.map((name) => ({ name })),
     stores: game.stores
       .map((listing) => listing.store === "steam"

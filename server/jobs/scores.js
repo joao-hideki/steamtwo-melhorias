@@ -62,8 +62,15 @@ export async function syncScores({ repository, now } = {}) {
         counts[store] = { now: current.length, week: week.length };
       }
 
-      // "De sempre" depende da popularidade histórica (IGDB/seed) e não de loja.
-      const allTime = createAllTimeRanking(allTimeGames);
+      // "De sempre": popularidade histórica da IGDB quando configurada; sem ela, o pico
+      // monitorado — o maior Índice SteamTwo que cada jogo já atingiu nas coletas
+      // (lido depois de gravar o "agora" deste cálculo, então já inclui a coleta atual).
+      let allTime = createAllTimeRanking(allTimeGames);
+      if (!allTime.length && repository.loadPeakScores) {
+        allTime = (await repository.loadPeakScores())
+          .sort((a, b) => b.score - a.score || a.gameId.localeCompare(b.gameId))
+          .map((item, index) => ({ gameId: item.gameId, score: item.score, metric: item.score, rank: index + 1, source: "steamtwo-peak" }));
+      }
       await repository.replaceRankings({
         period: "all-time", store: "all", asOf: capturedAt,
         entries: allTime.slice(0, MAX_POSITIONS).map((item) => ({ ...item, trend: 0 })),

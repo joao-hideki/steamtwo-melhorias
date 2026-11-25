@@ -1,3 +1,5 @@
+import { withTransaction } from "./pool.js";
+
 /**
  * Consultas de leitura da API. Filtros, ordenação e paginação acontecem no
  * PostgreSQL (antes o serviço carregava o catálogo inteiro e filtrava em memória).
@@ -102,7 +104,9 @@ export function createCatalogReadRepository(pool) {
         score: Number(Number(row.score ?? 0).toFixed(1)),
         trend: Number(row.trend ?? 0),
         metric: period === "all-time"
-          ? { type: "popularity", value: toNumber(row.metric), label: "Popularidade histórica" }
+          ? row.source === "igdb"
+            ? { type: "popularity", value: toNumber(row.metric), label: "Popularidade histórica (IGDB)" }
+            : { type: "peak", value: toNumber(row.metric), label: "Maior índice já registrado" }
           : period === "week"
             ? { type: "days", value: toNumber(row.metric), label: "Dias válidos na semana" }
             : { type: "players", value: toNumber(row.currentPlayers), label: "Jogadores Steam" },
@@ -219,27 +223,26 @@ export function createCatalogReadRepository(pool) {
         return result.rows[0].total;
       },
       /**
-       * Uma única instrução decide o resultado (sem corrida entre contar e inserir):
-       * "not-found" | "exists" (idempotente) | "full" (limite atingido) | "added".
+       * Resultado: "not-found" | "exists" (idempotente) | "full" (limite) | "added".
+       * Requisições concorrentes para a MESMA lista são serializadas por um advisory
+       * lock de transação (pg_advisory_xact_lock): a contagem, a verificação de
+       * duplicata e o INSERT enxergam o estado já confirmado pela requisição anterior.
+       * Uma única instrução com CTE não basta — no READ COMMITTED, dois PUTs simultâneos
+       * veriam a lista "sem o jogo" e o perdedor do ON CONFLICT viraria um falso "cheia".
        */
       async add(listId, slug, limit) {
-        const result = await pool.query(`
-          WITH game AS (SELECT id FROM games WHERE slug = $2),
-          existing AS (SELECT 1 FROM watchlist_items w JOIN game ON w.game_id = game.id WHERE w.list_id = $1),
-          total AS (SELECT count(*) AS n FROM watchlist_items WHERE list_id = $1),
-          inserted AS (
-            INSERT INTO watchlist_items (list_id, game_id)
-            SELECT $1, game.id FROM game, total
-            WHERE NOT EXISTS (SELECT 1 FROM existing) AND total.n < $3
-            ON CONFLICT (list_id, game_id) DO NOTHING
-            RETURNING game_id
-          )
-          SELECT EXISTS (SELECT 1 FROM game) AS found, EXISTS (SELECT 1 FROM existing) AS already,
-            EXISTS (SELECT 1 FROM inserted) AS added`, [listId, slug, limit]);
-        const { found, already, added } = result.rows[0];
-        if (!found) return "not-found";
-        if (already) return "exists";
-        return added ? "added" : "full";
+        return withTransaction(pool, async (client) => {
+          await client.query("SELECT pg_advisory_xact_lock(hashtext('steamtwo:watchlist:' || $1))", [listId]);
+          const game = await client.query("SELECT id FROM games WHERE slug = $1", [slug]);
+          if (!game.rows[0]) return "not-found";
+          const state = await client.query(`SELECT
+              EXISTS (SELECT 1 FROM watchlist_items WHERE list_id = $1 AND game_id = $2) AS already,
+              (SELECT count(*) FROM watchlist_items WHERE list_id = $1)::int AS total`, [listId, game.rows[0].id]);
+          if (state.rows[0].already) return "exists";
+          if (state.rows[0].total >= limit) return "full";
+          await client.query("INSERT INTO watchlist_items (list_id, game_id) VALUES ($1, $2)", [listId, game.rows[0].id]);
+          return "added";
+        });
       },
       async remove(listId, slug) {
         const result = await pool.query(`DELETE FROM watchlist_items w USING games g

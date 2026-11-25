@@ -78,8 +78,20 @@ describe("catálogo automático pela loja Steam", () => {
     expect(game).not.toHaveProperty("headerUrl");
   });
 
-  it("ignora apps sem dados na loja", () => {
+  it("ignora apps sem dados na loja e softwares que não são jogos", () => {
     expect(normalizeSteamAppDetails(1, { 1: { success: false } })).toBeNull();
+    expect(normalizeSteamAppDetails(2, { 2: { success: true, data: { name: "Crosshair X", type: "application" } } })).toBeNull();
+  });
+
+  it("sem IGDB, 'De sempre' usa o pico monitorado do índice", async () => {
+    const repo = repository({
+      loadAllTimeCandidates: vi.fn(async () => []),
+      loadPeakScores: vi.fn(async () => [{ gameId: "a", score: 60 }, { gameId: "b", score: 98 }]),
+    });
+    await syncScores({ repository: repo, now: clock });
+    const allTime = repo.replaceRankings.mock.calls.at(-1)[0];
+    expect(allTime.period).toBe("all-time");
+    expect(allTime.entries.map(({ gameId, rank, source }) => [gameId, rank, source])).toEqual([["b", 1, "steamtwo-peak"], ["a", 2, "steamtwo-peak"]]);
   });
 
   it("busca detalhes só dos apps do top que ainda não estão no catálogo", async () => {

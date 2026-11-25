@@ -1,3 +1,5 @@
+> **Nota (trabalho de melhorias):** este documento é o QA visual do projeto-base e foi mantido como histórico. Itens como "hero fixado em Elden Ring" não valem mais: o destaque e os demais dados agora vêm da API/PostgreSQL (ver README).
+
 # SteamTwo — Design QA
 
 ## Evidências

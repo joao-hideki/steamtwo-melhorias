@@ -1,6 +1,6 @@
-﻿sync-1     | [2026-11-24T23:56:22.321Z] agendador iniciado: "all" a cada 30 min
-sync-1     | [2026-11-24T23:57:32.367Z] steam-catalog: {"job":"steam-catalog","status":"success","records":39,"capturedAt":"2026-11-24T23:56:22.344Z","discovered":40,"failures":1}
-sync-1     | [2026-11-24T23:57:33.958Z] rankings: {"job":"rankings","status":"success","records":142,"capturedAt":"2026-11-24T23:57:32.368Z","sources":{"steam":{"status":"success","entries":122,"linked":45},"epic":{"status":"success","entries":20,"linked":6}}}
-sync-1     | [2026-11-24T23:57:34.036Z] scores: {"job":"scores","status":"success","records":202,"capturedAt":"2026-11-24T23:57:33.958Z","counts":{"all":{"now":45,"week":45},"steam":{"now":45,"week":45},"epic":{"now":6,"week":6},"allTime":10}}
+﻿sync-1     | [2026-11-25T00:50:55.495Z] agendador iniciado: "all" a cada 30 min
+sync-1     | [2026-11-25T00:51:30.024Z] steam-catalog: {"job":"steam-catalog","status":"success","records":40,"capturedAt":"2026-11-25T00:50:55.515Z","discovered":40,"failures":0}
+sync-1     | [2026-11-25T00:51:32.534Z] rankings: {"job":"rankings","status":"success","records":141,"capturedAt":"2026-11-25T00:51:30.025Z","sources":{"steam":{"status":"success","entries":121,"linked":46},"epic":{"status":"success","entries":20,"linked":6}}}
+sync-1     | [2026-11-25T00:51:32.624Z] scores: {"job":"scores","status":"success","records":242,"capturedAt":"2026-11-25T00:51:32.535Z","counts":{"all":{"now":46,"week":46},"steam":{"now":46,"week":46},"epic":{"now":6,"week":6},"allTime":46}}
 migrate-1  | Migrations complete!
 migrate-1  | Seed concluído: 10 jogos do catálogo inicial.

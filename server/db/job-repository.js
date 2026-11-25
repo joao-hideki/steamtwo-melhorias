@@ -268,10 +268,21 @@ export async function createJobRepository({ databaseUrl, pool: suppliedPool } = 
       });
     },
 
+    /** Popularidade histórica vinda de fato da IGDB (jogos com igdb_id). */
     async loadAllTimeCandidates() {
       return enqueue(async (client) => {
-        const result = await client.query(`SELECT id, igdb_popularity AS "igdbPopularity" FROM games WHERE igdb_popularity IS NOT NULL`);
+        const result = await client.query(`SELECT id, igdb_popularity AS "igdbPopularity" FROM games
+          WHERE igdb_id IS NOT NULL AND igdb_popularity IS NOT NULL`);
         return result.rows.map((row) => ({ id: row.id, igdbPopularity: Number(row.igdbPopularity) }));
+      });
+    },
+
+    /** Maior Índice SteamTwo ("agora", todas as lojas) já registrado para cada jogo. */
+    async loadPeakScores() {
+      return enqueue(async (client) => {
+        const result = await client.query(`SELECT game_id AS "gameId", max(score)::float AS score
+          FROM game_rankings WHERE period = 'now' AND store = 'all' AND score IS NOT NULL GROUP BY game_id`);
+        return result.rows;
       });
     },
 
@@ -281,7 +292,11 @@ export async function createJobRepository({ databaseUrl, pool: suppliedPool } = 
         const result = await client.query(`
           SELECT game_id AS "gameId", rank FROM game_rankings
           WHERE period = $1 AND store = $2
-            AND as_of = (SELECT max(as_of) FROM game_rankings WHERE period = $1 AND store = $2 AND as_of < $3)`,
+            -- Ancorado no último cálculo concluído com sucesso (um job que falhou no meio
+            -- pode ter gravado só parte dos rankings).
+            AND as_of = COALESCE(
+              (SELECT max(started_at) FROM sync_runs WHERE job = 'scores' AND state = 'success' AND started_at < $3),
+              (SELECT max(as_of) FROM game_rankings WHERE period = $1 AND store = $2 AND as_of < $3))`,
         [period, store, before]);
         return new Map(result.rows.map((row) => [row.gameId, row.rank]));
       });

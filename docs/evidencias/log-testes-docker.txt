@@ -1,14 +1,14 @@
-﻿✓ tests/domain/ranking.test.js (7 tests) 23ms
-✓ tests/domain/job-repository.test.js (4 tests) 21ms
-✓ tests/integrations/jobs.test.js (5 tests) 27ms
-✓ tests/integrations/new-jobs.test.js (7 tests) 25ms
-✓ tests/integrations/clients.test.js (7 tests) 46ms
-✓ tests/api/routes.test.js (4 tests) 72ms
-✓ tests/api/watchlist-and-validation.test.js (8 tests) 129ms
-✓ tests/db/postgres.integration.test.js (12 tests) 533ms
+﻿✓ tests/domain/ranking.test.js (7 tests) 17ms
+✓ tests/integrations/new-jobs.test.js (8 tests) 19ms
+✓ tests/integrations/jobs.test.js (5 tests) 21ms
+✓ tests/domain/job-repository.test.js (4 tests) 15ms
+✓ tests/integrations/clients.test.js (7 tests) 37ms
+✓ tests/api/routes.test.js (4 tests) 38ms
+✓ tests/api/watchlist-and-validation.test.js (9 tests) 107ms
+✓ tests/db/postgres.integration.test.js (15 tests) 825ms
 Test Files  8 passed (8)
-Tests  54 passed (54)
-Duration  1.49s (transform 396ms, setup 0ms, collect 1.99s, tests 877ms, environment 3ms, prepare 1.26s)
+Tests  59 passed (59)
+Duration  1.72s (transform 359ms, setup 0ms, collect 2.02s, tests 1.08s, environment 4ms, prepare 1.32s)
 # tests 4
 # pass 4
 # fail 0

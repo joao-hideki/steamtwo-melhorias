@@ -24,7 +24,8 @@ export function createApp({ apiRouter, staticDir } = {}) {
     response.status(status).json({
       error: status >= 500 && status !== 503
         ? "Erro interno do servidor"
-        : isValidationError ? "Parâmetros inválidos" : error.message,
+        : isValidationError ? "Parâmetros inválidos"
+          : isJsonError ? "JSON inválido no corpo da requisição" : error.message,
       ...(isValidationError ? { details: error.issues.map(({ path, message }) => ({ campo: path.join("."), mensagem: message })) } : {}),
     });
   });

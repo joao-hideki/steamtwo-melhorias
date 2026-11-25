@@ -53,6 +53,13 @@ describe("validação e novas rotas", () => {
     expect(slug.body.details[0]).toEqual({ campo: "slug", mensagem: "slug inválido" });
   });
 
+  it("byte nulo e JSON malformado respondem 400 em português", async () => {
+    await request(freshApp()).get("/api/games").query({ q: "x\u0000" }).expect(400);
+    const json = await request(freshApp()).put("/api/list/portal-2").set("X-List-Id", LIST_ID)
+      .set("Content-Type", "application/json").send("{ruim").expect(400);
+    expect(json.body.error).toBe("JSON inválido no corpo da requisição");
+  });
+
   it("rota inexistente da API responde 404 em JSON", async () => {
     const response = await request(freshApp()).get("/api/nao-existe").expect(404);
     expect(response.body.error).toBe("Rota não encontrada");

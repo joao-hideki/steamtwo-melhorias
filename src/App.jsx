@@ -191,7 +191,7 @@ function Hero({ game, updatedAt, onDetails, onMethodology, watchlist }) {
       <aside className="hero-score">
         <div className="score-heading"><h2>Índice SteamTwo</h2><button onClick={onMethodology}>Como calculamos <Info size={15} /></button></div>
         <div><Score value={game.score} large /> <span className="out-of">/100</span></div>
-        <p>Ranking combinado de Steam e Epic Games, calculado a partir das posições coletadas nas duas lojas.</p>
+        <p>Calculado a partir da posição do jogo nos rankings das lojas que o vendem ({storeKeys(game).map(storeLabel).join(" e ") || "—"}).</p>
         <div className="score-lines">
           <span><TrendUp size={19} /> Posição agora <b>#{game.rank ?? "—"}</b></span>
           <span><UsersThree size={19} /> Jogadores Steam agora <b>{formatNumber(game.metric?.type === "players" ? game.metric.value : game.currentPlayers)}</b></span>
@@ -261,7 +261,9 @@ function Home({ onDetails, onNavigate, onMethodology, watchlist, onMode }) {
           <button className="more-link" onClick={() => onNavigate("rankings")}>Ver ranking completo <ArrowRight size={19} /></button>
         </div>
         <div className="alltime-panel">
-          <div className="section-head"><div><h2>DE SEMPRE</h2><p>Popularidade histórica (IGDB / catálogo).</p></div></div>
+          <div className="section-head"><div><h2>DE SEMPRE</h2><p>{data.allTime[0]?.metric?.type === "peak"
+            ? "Maior Índice SteamTwo que cada jogo já atingiu nas coletas."
+            : "Popularidade histórica (IGDB)."}</p></div></div>
           <div className="poster-grid">
             {data.allTime.map((game) => (
               <button className="poster" key={game.id} onClick={() => onDetails(game)}>
@@ -361,7 +363,9 @@ function Rankings({ onDetails, initialPeriod = "now" }) {
   const { data, loading, error } = useApi(`/rankings${query({ period, store, page, limit: 15 })}`);
   const items = data?.items ?? [];
   const pagination = data?.pagination;
-  const metricLabel = period === "all-time" ? "Popularidade" : period === "week" ? "Dias válidos" : "Jogadores Steam";
+  const metricLabel = period === "all-time"
+    ? (items[0]?.metric?.type === "peak" ? "Pico do índice" : "Popularidade")
+    : period === "week" ? "Dias válidos" : "Jogadores Steam";
 
   return (
     <section className="rankings-page">
@@ -388,7 +392,7 @@ function Rankings({ onDetails, initialPeriod = "now" }) {
                   <strong>{game.rank}</strong>
                   <span><SafeImage src={game.coverUrl} alt="" /><b>{game.title}</b></span>
                   <Score value={game.score} />
-                  <span className="metric-cell">{game.metric?.type === "popularity" ? formatScore(game.metric.value) : formatNumber(game.metric?.value)}</span>
+                  <span className="metric-cell">{["popularity", "peak"].includes(game.metric?.type) ? formatScore(game.metric.value) : formatNumber(game.metric?.value)}</span>
                   <Trend value={game.trend} />
                 </button>
               ))}
@@ -525,13 +529,13 @@ function Status() {
         <>
           <h2 className="status-title">Últimas execuções dos jobs (tabela sync_runs)</h2>
           <div className="ranking-table runs-table" role="table">
-            <div className="table-head" role="row"><span>Job</span><span>Situação</span><span>Início</span><span>Registros / erro</span></div>
+            <div className="table-head" role="row"><span role="columnheader">Job</span><span role="columnheader">Situação</span><span role="columnheader">Início</span><span role="columnheader">Registros / erro</span></div>
             {data.lastRuns.map((run) => (
               <div className="table-row" role="row" key={run.job}>
-                <b>{run.job}</b>
-                <span className={`tone-${run.state === "success" ? "ok" : run.state === "failed" ? "bad" : "warn"}`}>{run.state}</span>
-                <span>{formatDate(run.startedAt, { withTime: true })}</span>
-                <span>{run.error ?? formatNumber(run.details?.records)}</span>
+                <b role="cell">{run.job}</b>
+                <span role="cell" className={`tone-${run.state === "success" ? "ok" : run.state === "failed" ? "bad" : "warn"}`}>{run.state}</span>
+                <span role="cell">{formatDate(run.startedAt, { withTime: true })}</span>
+                <span role="cell">{run.error ?? formatNumber(run.details?.records)}</span>
               </div>
             ))}
           </div>
@@ -562,7 +566,7 @@ function Methodology({ onClose }) {
         <div className="method-grid">
           <div><strong>01</strong><h3>Agora</h3><p>Último snapshot válido da Steam (jogadores simultâneos / mais jogados) e da Epic (mais jogados).</p></div>
           <div><strong>02</strong><h3>Semana</h3><p>Média dos snapshots diários válidos dos últimos sete dias.</p></div>
-          <div><strong>03</strong><h3>De sempre</h3><p>Popularidade histórica (IGDB ou catálogo inicial). Não representa horas jogadas.</p></div>
+          <div><strong>03</strong><h3>De sempre</h3><p>Popularidade histórica da IGDB, quando configurada; sem ela, o maior índice que cada jogo já atingiu nas coletas.</p></div>
         </div>
         <small className="method-foot">Fontes: Steam Charts, Epic Games Store (com fallback egdata) e IGDB.</small>
       </section>

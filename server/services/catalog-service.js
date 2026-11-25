@@ -14,15 +14,18 @@ const storeMatches = (game, store) =>
 
 const pagination = (page, limit, total) => ({ page, limit, total, pages: Math.ceil(total / limit) });
 
-function rankingView(game, index, field = "score") {
+function rankingView(game, index, field = "score", period = "now") {
   return {
     ...game,
     rank: index + 1,
     score: Number(game[field].toFixed(1)),
+    // Mesmo formato de métrica do modo banco para cada período.
     metric:
       field === "historicalPopularity"
         ? { type: "popularity", value: game[field], label: "Popularidade histórica" }
-        : { type: "players", value: game.currentPlayers, label: "Jogadores Steam" },
+        : period === "week"
+          ? { type: "days", value: null, label: "Dias válidos na semana" }
+          : { type: "players", value: game.currentPlayers, label: "Jogadores Steam" },
     source: field === "historicalPopularity" ? "igdb" : "steamtwo",
     updatedAt: mockUpdatedAt,
   };
@@ -70,7 +73,7 @@ function createDemoCatalogService({ games = mockGames } = {}) {
     async rankings({ period = "now", store = "all", page = 1, limit = 20 } = {}) {
       const filtered = (await listGames()).filter((game) => storeMatches(game, store));
       const field = period === "all-time" ? "historicalPopularity" : "score";
-      const ranked = [...filtered].sort((a, b) => b[field] - a[field]).map((game, index) => rankingView(game, index, field));
+      const ranked = [...filtered].sort((a, b) => b[field] - a[field]).map((game, index) => rankingView(game, index, field, period));
       const start = (page - 1) * limit;
       return {
         items: ranked.slice(start, start + limit),
